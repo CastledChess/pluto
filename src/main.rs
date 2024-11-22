@@ -1,20 +1,24 @@
 use crate::uci::{Uci, UciParser};
+use std::io;
+use std::io::Write;
 
-mod perft;
+mod eval;
 mod search;
 mod uci;
-// use crate::perft::perform_perft;
 
 fn main() {
-    // perform_perft(6);
+    println!("id name CastledEngine");
+    println!("id author CastledChess");
+    println!("uciok");
 
     let search = search::default();
     let mut uci = Uci { search };
+    let mut input = String::new();
 
     loop {
-        let mut input = String::new();
+        input.clear();
 
-        std::io::stdin().read_line(&mut input).unwrap();
+        io::stdin().read_line(&mut input).ok().unwrap();
 
         uci.parse_command(&input);
     }
