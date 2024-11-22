@@ -1,6 +1,5 @@
 use crate::uci::{Uci, UciParser};
 use std::io;
-use std::io::Write;
 
 mod eval;
 mod search;
