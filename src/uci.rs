@@ -1,3 +1,4 @@
+use crate::search::TimeControl::Infinite;
 use crate::search::{Search, SearchEngine, TimeControl};
 use queues::{queue, IsQueue, Queue};
 use shakmaty::fen::Fen;
@@ -17,7 +18,7 @@ pub trait UciParser {
     fn handle_position_fen(&mut self, tokens: &mut Queue<&str>);
     fn handle_setoption(&self, tokens: &mut Queue<&str>);
     fn handle_go_infinite(&mut self, tokens: &mut Queue<&str>);
-    fn handle_ucinewgame(&self);
+    fn handle_ucinewgame(&mut self);
     fn handle_isready(&self);
     fn handle_quit(&self);
     fn handle_uci(&self);
@@ -121,7 +122,7 @@ impl UciParser for Uci {
 
         match token {
             "startpos" => {
-                let _ = self.handle_position_startpos(tokens);
+                self.handle_position_startpos(tokens);
             }
             "fen" => self.handle_position_fen(tokens),
             _ => println!("Unknown position command: {}", token),
@@ -140,27 +141,40 @@ impl UciParser for Uci {
                 let uci_move = move_str.parse::<UciMove>().ok();
                 let game = self.search.game.clone();
                 let legal = uci_move.unwrap().to_move(&game).ok().unwrap();
-                game.play(&legal).unwrap();
+                self.search.game = game.play(&legal).unwrap();
             }
         }
     }
 
     fn handle_position_fen(&mut self, tokens: &mut Queue<&str>) {
-        let fen: Fen = tokens.remove().ok().unwrap().parse().unwrap();
+        let mut fen_vec: Vec<&str> = vec![tokens.remove().ok().unwrap()];
+        let mut token: &str = "";
 
-        self.search.game = fen.clone().into_position(CastlingMode::Standard).unwrap();
+        loop {
+            let result = tokens.remove().ok();
 
-        if let Some(moves) = tokens.remove().ok() {
-            if moves != "moves" {
-                return;
+            match result {
+                None => break,
+                Some(value) => token = value,
             }
 
+            if token == "moves" {
+                break;
+            }
+
+            fen_vec.push(token);
+        }
+
+        let fen: Fen = fen_vec.join(" ").as_str().parse().ok().unwrap();
+
+        self.search.game = fen.into_position(CastlingMode::Standard).ok().unwrap();
+
+        if token == "moves" {
             while let Some(move_str) = tokens.remove().ok() {
-                if let uci_move = move_str.parse::<UciMove>().ok() {
-                    let game = self.search.game.clone();
-                    let legal = uci_move.unwrap().to_move(&game).ok().unwrap();
-                    game.play(&legal).unwrap();
-                }
+                let uci_move = move_str.parse::<UciMove>().ok();
+                let game = self.search.game.clone();
+                let legal = uci_move.unwrap().to_move(&game).ok().unwrap();
+                self.search.game = game.play(&legal).unwrap();
             }
         }
     }
@@ -182,15 +196,14 @@ impl UciParser for Uci {
     }
 
     fn handle_go_infinite(&mut self, tokens: &mut Queue<&str>) {
-        // search.max_depth = 1000;
-        // search.time_control = infinite;
+        self.search.depth = 1000;
+        self.search.time_control = Infinite;
 
         self.handle_go(tokens);
     }
 
-    fn handle_ucinewgame(&self) {
-        // search.position = startpos;
-        // search.clear();
+    fn handle_ucinewgame(&mut self) {
+        self.search.game = Chess::default();
     }
 
     fn handle_isready(&self) {
