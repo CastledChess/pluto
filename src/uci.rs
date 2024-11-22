@@ -1,29 +1,34 @@
+use crate::search::{Search, SearchEngine, TimeControl};
 use queues::{queue, IsQueue, Queue};
-use std::ptr::null;
+use shakmaty::fen::Fen;
+use shakmaty::uci::UciMove;
+use shakmaty::{CastlingMode, Chess, Position};
 
 pub trait UciParser {
-    fn parse_command(&self, command: &str);
-    fn parse_tokens(&self, tokens: &mut Queue<&str>);
-    fn handle_go(&self, tokens: &mut Queue<&str>);
-    fn handle_btime(&self, tokens: &mut Queue<&str>);
-    fn handle_wtime(&self, tokens: &mut Queue<&str>);
-    fn handle_go_depth(&self, tokens: &mut Queue<&str>);
-    fn handle_go_movetime(&self, tokens: &mut Queue<&str>);
-    fn handle_position(&self, tokens: &mut Queue<&str>);
-    fn handle_position_startpos(&self, tokens: &mut Queue<&str>);
-    fn handle_position_fen(&self, tokens: &mut Queue<&str>);
+    fn parse_command(&mut self, command: &str);
+    fn parse_tokens(&mut self, tokens: &mut Queue<&str>);
+    fn handle_go(&mut self, tokens: &mut Queue<&str>);
+    fn handle_btime(&mut self, tokens: &mut Queue<&str>);
+    fn handle_wtime(&mut self, tokens: &mut Queue<&str>);
+    fn handle_go_depth(&mut self, tokens: &mut Queue<&str>);
+    fn handle_go_movetime(&mut self, tokens: &mut Queue<&str>);
+    fn handle_position(&mut self, tokens: &mut Queue<&str>);
+    fn handle_position_startpos(&mut self, tokens: &mut Queue<&str>);
+    fn handle_position_fen(&mut self, tokens: &mut Queue<&str>);
     fn handle_setoption(&self, tokens: &mut Queue<&str>);
-    fn handle_go_infinite(&self, tokens: &mut Queue<&str>);
+    fn handle_go_infinite(&mut self, tokens: &mut Queue<&str>);
     fn handle_ucinewgame(&self);
     fn handle_isready(&self);
     fn handle_quit(&self);
     fn handle_uci(&self);
 }
 
-pub struct Uci();
+pub struct Uci {
+    pub search: Search,
+}
 
 impl UciParser for Uci {
-    fn parse_command(&self, command: &str) {
+    fn parse_command(&mut self, command: &str) {
         let tokens_vec: Vec<&str> = command.split_whitespace().collect();
         let mut tokens: Queue<&str> = queue![];
 
@@ -34,119 +39,128 @@ impl UciParser for Uci {
         self.parse_tokens(&mut tokens);
     }
 
-    fn parse_tokens(&self, tokens: &mut Queue<&str>) {
+    fn parse_tokens(&mut self, tokens: &mut Queue<&str>) {
         let first_token = tokens.remove().unwrap();
 
         match first_token {
-            "uci" => println!("uci"),
-            "isready" => println!("isready"),
-            "quit" => println!("quit"),
-            "setoption" => println!("setoption"),
-            "ucinewgame" => println!("ucinewgame"),
-            "position" => println!("position"),
-            "go" => println!("go"),
+            "uci" => self.handle_uci(),
+            "isready" => self.handle_isready(),
+            "quit" => self.handle_quit(),
+            "setoption" => self.handle_setoption(tokens),
+            "ucinewgame" => self.handle_ucinewgame(),
+            "position" => self.handle_position(tokens),
+            "go" => self.handle_go(tokens),
             _ => println!("Unknown command: {}", first_token),
         }
     }
 
-    fn handle_go(&self, tokens: &mut Queue<&str>) {
-        let token = tokens.remove().unwrap();
+    fn handle_go(&mut self, tokens: &mut Queue<&str>) {
+        let token = tokens.remove();
 
-        match token {
-            "btime" => self.handle_btime(tokens),
-            "wtime" => self.handle_wtime(tokens),
-            "depth" => self.handle_go_depth(tokens),
-            "movetime" => self.handle_go_movetime(tokens),
-            "infinite" => self.handle_go_infinite(tokens),
-            _ =>
-            // search.go();
-            {
-                println!("Unknown go command: {}", token);
+        match token.is_ok() {
+            true => match token.unwrap() {
+                "btime" => self.handle_btime(tokens),
+                "wtime" => self.handle_wtime(tokens),
+                "depth" => self.handle_go_depth(tokens),
+                "movetime" => self.handle_go_movetime(tokens),
+                "infinite" => self.handle_go_infinite(tokens),
+                _ => println!("Unknown go command: {}", token.unwrap()),
+            },
+
+            false => {
+                self.search.go();
             }
         }
     }
 
-    fn handle_btime(&self, tokens: &mut Queue<&str>) {
+    fn handle_btime(&mut self, tokens: &mut Queue<&str>) {
         let token = tokens.remove().unwrap();
-        let time = token.parse::<u64>().unwrap();
+        let time = token.parse::<u32>().unwrap();
 
-        // search.max_depth = 1000;
-        // search.time_control = worbtime;
-        // search.btime = time;
+        self.search.depth = 1000;
+        self.search.time_control = TimeControl::WOrBTime;
+        self.search.btime = time;
 
         self.handle_go(tokens);
     }
 
-    fn handle_wtime(&self, tokens: &mut Queue<&str>) {
+    fn handle_wtime(&mut self, tokens: &mut Queue<&str>) {
         let token = tokens.remove().unwrap();
-        let time = token.parse::<u64>().unwrap();
+        let time = token.parse::<u32>().unwrap();
 
-        // search.max_depth = 1000;
-        // search.time_control = worbtime;
-        // search.wtime = time;
+        self.search.depth = 1000;
+        self.search.time_control = TimeControl::WOrBTime;
+        self.search.wtime = time;
 
         self.handle_go(tokens);
     }
 
-    fn handle_go_depth(&self, tokens: &mut Queue<&str>) {
+    fn handle_go_depth(&mut self, tokens: &mut Queue<&str>) {
         let token = tokens.remove().unwrap();
         let depth = token.parse::<u64>().unwrap();
 
-        // search.max_depth = depth;
-        // search.time_control = none;
+        self.search.depth = depth as u32;
+        self.search.time_control = TimeControl::None;
 
         self.handle_go(tokens);
     }
 
-    fn handle_go_movetime(&self, tokens: &mut Queue<&str>) {
+    fn handle_go_movetime(&mut self, tokens: &mut Queue<&str>) {
         let token = tokens.remove().unwrap();
-        let time = token.parse::<u64>().unwrap();
+        let time = token.parse::<u32>().unwrap();
 
-        // search.max_depth = 1000;
-        // search.time_control = movetime;
-        // search.movetime = time;
+        self.search.movetime = time;
+        self.search.time_control = TimeControl::MoveTime;
+        self.search.depth = 1000;
 
         self.handle_go(tokens);
     }
 
-    fn handle_position(&self, tokens: &mut Queue<&str>) {
+    fn handle_position(&mut self, tokens: &mut Queue<&str>) {
         let token = tokens.remove().unwrap();
 
         match token {
-            "startpos" => self.handle_position_startpos(tokens),
+            "startpos" => {
+                let _ = self.handle_position_startpos(tokens);
+            }
             "fen" => self.handle_position_fen(tokens),
             _ => println!("Unknown position command: {}", token),
         }
     }
 
-    fn handle_position_startpos(&self, tokens: &mut Queue<&str>) {
-        // search.position = startpos;
+    fn handle_position_startpos(&mut self, tokens: &mut Queue<&str>) {
+        self.search.game = Chess::default();
 
-        let token = tokens.remove().unwrap();
+        if let Some(moves) = tokens.remove().ok() {
+            if moves != "moves" {
+                return;
+            }
 
-        if token == "moves" {
-            while (tokens.size() > 0) {
-                let move_str = tokens.remove().unwrap();
-                let uci_move = move_str.parse();
-
-                // search.position.make_move(uci_move);
+            while let Some(move_str) = tokens.remove().ok() {
+                let uci_move = move_str.parse::<UciMove>().ok();
+                let game = self.search.game.clone();
+                let legal = uci_move.unwrap().to_move(&game).ok().unwrap();
+                game.play(&legal).unwrap();
             }
         }
     }
 
-    fn handle_position_fen(&self, tokens: &mut Queue<&str>) {
-        let fen = tokens.remove().unwrap();
+    fn handle_position_fen(&mut self, tokens: &mut Queue<&str>) {
+        let fen: Fen = tokens.remove().ok().unwrap().parse().unwrap();
 
-        // search.position = fen(fen);
+        self.search.game = fen.clone().into_position(CastlingMode::Standard).unwrap();
 
-        let token = tokens.remove().unwrap();
+        if let Some(moves) = tokens.remove().ok() {
+            if moves != "moves" {
+                return;
+            }
 
-        if token == "moves" {
-            while (tokens.size() > 0) {
-                let move_str = tokens.remove().unwrap();
-                let uci_move = move_str.parse();
-
-                // search.position.make_move(uci_move);
+            while let Some(move_str) = tokens.remove().ok() {
+                if let uci_move = move_str.parse::<UciMove>().ok() {
+                    let game = self.search.game.clone();
+                    let legal = uci_move.unwrap().to_move(&game).ok().unwrap();
+                    game.play(&legal).unwrap();
+                }
             }
         }
     }
@@ -157,7 +171,7 @@ impl UciParser for Uci {
         tokens.remove().unwrap(); // value
         let value = tokens.remove().unwrap();
 
-        if (name == null() || value == null()) {
+        if name.is_empty() || value.is_empty() {
             return;
         }
 
@@ -167,7 +181,7 @@ impl UciParser for Uci {
         }
     }
 
-    fn handle_go_infinite(&self, tokens: &mut Queue<&str>) {
+    fn handle_go_infinite(&mut self, tokens: &mut Queue<&str>) {
         // search.max_depth = 1000;
         // search.time_control = infinite;
 
