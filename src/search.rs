@@ -2,9 +2,9 @@ use crate::bound::Bound;
 use crate::eval::{Eval, SimpleEval};
 use crate::moves::DEFAULT_MOVE;
 use crate::timecontrol::TimeControl;
-use crate::transposition::TranspositionTableEntry;
+use crate::transposition::TranspositionTable;
 use shakmaty::zobrist::{Zobrist64, ZobristHash};
-use shakmaty::{CastlingMode, Chess, Color, EnPassantMode, Move, Position};
+use shakmaty::{CastlingMode, Chess, Color, EnPassantMode, Move, Position, Role};
 use std::time::SystemTime;
 
 pub trait SearchEngine {
@@ -22,7 +22,7 @@ pub struct Search {
     play_time: u32,
     eval: Eval,
     iteration_move: Move,
-    transposition_table: Vec<TranspositionTableEntry>,
+    transposition_table: TranspositionTable,
     start_time: SystemTime,
 }
 
@@ -34,6 +34,7 @@ impl SearchEngine for Search {
         };
 
         // self.transposition_table = vec![TranspositionTableEntry::default(); 0x7FFFFF];
+        self.transposition_table.new_search();
         self.start_time = SystemTime::now();
         let mut best_move = DEFAULT_MOVE.clone();
 
@@ -89,9 +90,10 @@ impl SearchEngine for Search {
 
         let is_root = ply == 0;
         let position_key = pos.zobrist_hash::<Zobrist64>(EnPassantMode::Legal);
-        let entry = &self.transposition_table[(position_key.0 % 0x7FFFFF) as usize];
+        let entry = self.transposition_table.probe(position_key);
 
         if entry.key == position_key
+            && entry.generation == self.transposition_table.generation
             && !is_root
             && entry.depth >= depth
             && (entry.bound == Bound::Exact
@@ -101,7 +103,7 @@ impl SearchEngine for Search {
             return entry.score;
         }
 
-        let moves = &pos.legal_moves();
+        let moves = &mut pos.legal_moves();
         let start_alpha = alpha;
         let mut best_score = -100000;
 
@@ -114,8 +116,51 @@ impl SearchEngine for Search {
         }
 
         let mut best_move = &moves[0];
+        let mut move_scores = vec![];
 
-        for m in moves {
+        for i in 0..moves.len() {
+            if moves[i] == entry._move {
+                move_scores.push(200);
+            } else if let Some(capture) = moves[i].capture() {
+                let piece_value = match moves[i].role() {
+                    Role::Pawn => 1,
+                    Role::Knight => 3,
+                    Role::Bishop => 3,
+                    Role::Rook => 5,
+                    Role::Queen => 9,
+                    _ => 0,
+                };
+                let capture_value = match capture {
+                    Role::Pawn => 1,
+                    Role::Knight => 3,
+                    Role::Bishop => 3,
+                    Role::Rook => 5,
+                    Role::Queen => 9,
+                    _ => 0,
+                };
+
+                move_scores.push(100 * capture_value - piece_value);
+            } else if let Some(m) = moves[i].promotion() {
+                let promotion_value = match m {
+                    Role::Knight => 3,
+                    Role::Bishop => 3,
+                    Role::Rook => 5,
+                    Role::Queen => 9,
+                    _ => 0,
+                };
+
+                move_scores.push(promotion_value);
+            } else {
+                move_scores.push(0);
+            }
+        }
+
+        let mut move_indices: Vec<usize> = (0..moves.len()).collect();
+        move_indices.sort_by_key(|&i| -move_scores[i]);
+
+        for &i in &move_indices {
+            let m = &moves[i];
+
             let mut pos = pos.clone();
             pos.play_unchecked(&m);
             let score = -self.negamax(&pos, depth - 1, -beta, -alpha, ply + 1);
@@ -142,13 +187,8 @@ impl SearchEngine for Search {
             _ => Bound::Exact,
         };
 
-        self.transposition_table[(position_key.0 % 0x7FFFFF) as usize] = TranspositionTableEntry {
-            key: position_key,
-            score: best_score,
-            depth,
-            bound,
-            _move: best_move.clone(),
-        };
+        self.transposition_table
+            .store(position_key, depth, best_score, bound, best_move.clone());
 
         best_score
     }
@@ -167,7 +207,7 @@ impl Default for Search {
             eval: Eval::default(),
             iteration_move: DEFAULT_MOVE.clone(),
             start_time: SystemTime::now(),
-            transposition_table: vec![TranspositionTableEntry::default(); 0x7FFFFF],
+            transposition_table: TranspositionTable::new(0x7FFFFF),
         }
     }
 }
