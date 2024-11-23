@@ -1,5 +1,5 @@
-use crate::search::TimeControl::Infinite;
-use crate::search::{Search, SearchEngine, TimeControl};
+use crate::search::{Search, SearchEngine};
+use crate::timecontrol::TimeControl;
 use queues::{queue, IsQueue, Queue};
 use shakmaty::fen::Fen;
 use shakmaty::uci::UciMove;
@@ -24,8 +24,42 @@ pub trait UciParser {
     fn handle_uci(&self);
 }
 
+#[allow(dead_code)]
+enum UciOptionType {
+    Check,
+    Spin,
+    Combo,
+    Button,
+    String,
+}
+
+struct UciOption {
+    name: String,
+    default: String,
+    option_type: UciOptionType,
+    min: i32,
+    max: i32,
+}
+
 pub struct Uci {
     pub search: Search,
+    options: Vec<UciOption>,
+}
+
+impl Default for Uci {
+    fn default() -> Uci {
+        Uci {
+            search: Search::default(),
+            options: vec![],
+            // options: vec![UciOption {
+            //     name: "MoveOverhead".to_string(),
+            //     default: "30".to_string(),
+            //     option_type: UciOptionType::Spin,
+            //     min: 0,
+            //     max: 1000,
+            // }],
+        }
+    }
 }
 
 impl UciParser for Uci {
@@ -197,7 +231,7 @@ impl UciParser for Uci {
 
     fn handle_go_infinite(&mut self, tokens: &mut Queue<&str>) {
         self.search.depth = 1000;
-        self.search.time_control = Infinite;
+        self.search.time_control = TimeControl::Infinite;
 
         self.handle_go(tokens);
     }
@@ -220,18 +254,19 @@ impl UciParser for Uci {
         println!("id name CastledEngine");
         println!("id author CastledChess");
 
-        // TODO: print all options
-        // for option in vec![
-        //     "MoveOverhead",
-        //     "UCI_Chess960",
-        //     "UCI_AnalyseMode",
-        //     "UCI_LimitStrength",
-        //     "UCI_Elo",
-        //     "UCI_ShowWDL",
-        //     "UCI_ShowCurrLine",
-        //     "UCI_ShowRefutations
-        // "].iter() {
-        //     println!("option name {} type spin default 0", option);
-        // }
+        for option in &self.options {
+            let type_str = match option.option_type {
+                UciOptionType::Check => "check",
+                UciOptionType::Spin => "spin",
+                UciOptionType::Combo => "combo",
+                UciOptionType::Button => "button",
+                UciOptionType::String => "string",
+            };
+
+            println!(
+                "option name {} type {} default {} min {} max {}",
+                option.name, type_str, option.default, option.min, option.max
+            );
+        }
     }
 }
