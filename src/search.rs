@@ -33,7 +33,6 @@ impl SearchEngine for Search {
             Color::Black => self.btime,
         };
 
-        // self.transposition_table = vec![TranspositionTableEntry::default(); 0x7FFFFF];
         self.transposition_table.new_search();
         self.start_time = SystemTime::now();
         let mut best_move = DEFAULT_MOVE.clone();
