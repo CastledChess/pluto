@@ -1,14 +1,15 @@
 use crate::bound::Bound;
 use crate::eval::{Eval, SimpleEval};
+use crate::moves::DEFAULT_MOVE;
 use crate::timecontrol::TimeControl;
 use crate::transposition::TranspositionTableEntry;
 use shakmaty::zobrist::{Zobrist64, ZobristHash};
-use shakmaty::{CastlingMode, Chess, Color, EnPassantMode, Move, Position, Role, Square};
+use shakmaty::{CastlingMode, Chess, Color, EnPassantMode, Move, Position};
 use std::time::SystemTime;
 
 pub trait SearchEngine {
     fn go(&mut self);
-    fn negamax(&mut self, depth: u32, alpha: i32, beta: i32, ply: u32) -> i32;
+    fn negamax(&mut self, pos: &Chess, depth: u32, alpha: i32, beta: i32, ply: u32) -> i32;
 }
 
 pub struct Search {
@@ -32,20 +33,13 @@ impl SearchEngine for Search {
             Color::Black => self.btime,
         };
 
-        println!("info string play_time: {}", self.play_time / 30);
-
-        self.transposition_table = vec![TranspositionTableEntry::default(); 0x7FFFFF];
+        // self.transposition_table = vec![TranspositionTableEntry::default(); 0x7FFFFF];
         self.start_time = SystemTime::now();
-        let mut best_move = Move::Normal {
-            role: Role::Pawn,
-            from: Square::A1,
-            to: Square::A1,
-            promotion: None,
-            capture: None,
-        };
+        let mut best_move = DEFAULT_MOVE.clone();
 
         for current_depth in 1..self.depth + 1 {
-            let iteration_score = self.negamax(current_depth, -100000, 100000, 0);
+            let pos = self.game.clone();
+            let iteration_score = self.negamax(&pos, current_depth, -100000, 100000, 0);
             let duration = SystemTime::now().duration_since(self.start_time);
             let elapsed = duration.unwrap().as_millis();
 
@@ -70,7 +64,7 @@ impl SearchEngine for Search {
         println!("bestmove {}", best_move.to_uci(CastlingMode::Standard));
     }
 
-    fn negamax(&mut self, depth: u32, mut alpha: i32, beta: i32, ply: u32) -> i32 {
+    fn negamax(&mut self, pos: &Chess, depth: u32, mut alpha: i32, beta: i32, ply: u32) -> i32 {
         let duration = SystemTime::now().duration_since(self.start_time);
         let elapsed = duration.unwrap().as_millis();
 
@@ -90,13 +84,11 @@ impl SearchEngine for Search {
         };
 
         if depth == 0 {
-            return self
-                .eval
-                .simple_eval(self.game.board().clone(), self.game.turn());
+            return self.eval.simple_eval(pos.board().clone(), pos.turn());
         }
 
         let is_root = ply == 0;
-        let position_key = self.game.zobrist_hash::<Zobrist64>(EnPassantMode::Legal);
+        let position_key = pos.zobrist_hash::<Zobrist64>(EnPassantMode::Legal);
         let entry = &self.transposition_table[(position_key.0 % 0x7FFFFF) as usize];
 
         if entry.key == position_key
@@ -109,9 +101,9 @@ impl SearchEngine for Search {
             return entry.score;
         }
 
-        let moves = &self.game.legal_moves();
+        let moves = &pos.legal_moves();
 
-        if moves.len() == 0 && self.game.is_checkmate() {
+        if moves.len() == 0 && pos.is_checkmate() {
             return -10000 + ply as i32;
         }
 
@@ -120,10 +112,9 @@ impl SearchEngine for Search {
         let mut best_move = &moves[0];
 
         for m in moves {
-            let game = self.game.clone();
-            self.game.play_unchecked(&m);
-            let score = -self.negamax(depth - 1, -beta, -alpha, ply + 1);
-            self.game = game;
+            let mut pos = pos.clone();
+            pos.play_unchecked(&m);
+            let score = -self.negamax(&pos, depth - 1, -beta, -alpha, ply + 1);
 
             if score > best_score {
                 best_score = score;
@@ -170,13 +161,7 @@ impl Default for Search {
             btime: 0,
             play_time: 0,
             eval: Eval::default(),
-            iteration_move: Move::Normal {
-                role: Role::Pawn,
-                from: Square::A1,
-                to: Square::A1,
-                promotion: None,
-                capture: None,
-            },
+            iteration_move: DEFAULT_MOVE.clone(),
             start_time: SystemTime::now(),
             transposition_table: vec![TranspositionTableEntry::default(); 0x7FFFFF],
         }

@@ -1,6 +1,7 @@
 use crate::bound::Bound;
+use crate::moves::DEFAULT_MOVE;
 use shakmaty::zobrist::Zobrist64;
-use shakmaty::{Move, Role, Square};
+use shakmaty::Move;
 
 impl Clone for TranspositionTableEntry {
     fn clone(&self) -> Self {
@@ -21,13 +22,7 @@ impl Default for TranspositionTableEntry {
             depth: 0,
             score: 0,
             bound: Bound::Alpha,
-            _move: Move::Normal {
-                role: Role::Pawn,
-                from: Square::A1,
-                to: Square::A1,
-                promotion: None,
-                capture: None,
-            },
+            _move: DEFAULT_MOVE.clone(),
         }
     }
 }

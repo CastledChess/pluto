@@ -3,6 +3,7 @@ use std::io;
 
 mod bound;
 mod eval;
+mod moves;
 mod search;
 mod timecontrol;
 mod transposition;
