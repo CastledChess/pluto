@@ -51,6 +51,7 @@ impl TranspositionTable {
         self.generation += 1;
     }
 
+    #[allow(dead_code)]
     pub fn clear(&mut self) {
         self.table = vec![TranspositionTableEntry::default(); self.length];
     }

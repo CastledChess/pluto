@@ -1,10 +1,5 @@
 use shakmaty::{Board, Color};
 
-pub trait SimpleEval {
-    fn init(&mut self);
-    fn simple_eval(&mut self, board: Board, turn: Color) -> i32;
-}
-
 pub struct Eval {
     w_square_tables: [[i32; 64]; 6],
     b_square_tables: [[i32; 64]; 6],
@@ -23,7 +18,7 @@ impl Eval {
     }
 }
 
-impl SimpleEval for Eval {
+impl Eval {
     fn init(&mut self) {
         for role in 0..6 {
             let value = match role {
@@ -47,7 +42,7 @@ impl SimpleEval for Eval {
         }
     }
 
-    fn simple_eval(&mut self, board: Board, turn: Color) -> i32 {
+    pub fn simple_eval(&mut self, board: Board, turn: Color) -> i32 {
         let mut eval = 0;
 
         for (sq, piece) in board.into_iter() {

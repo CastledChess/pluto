@@ -1,16 +1,11 @@
 use crate::bound::Bound;
-use crate::eval::{Eval, SimpleEval};
+use crate::eval::Eval;
 use crate::moves::DEFAULT_MOVE;
 use crate::timecontrol::TimeControl;
 use crate::transposition::TranspositionTable;
 use shakmaty::zobrist::{Zobrist64, ZobristHash};
 use shakmaty::{CastlingMode, Chess, Color, EnPassantMode, Move, Position, Role};
 use std::time::SystemTime;
-
-pub trait SearchEngine {
-    fn go(&mut self);
-    fn negamax(&mut self, pos: &Chess, depth: u32, alpha: i32, beta: i32, ply: u32) -> i32;
-}
 
 pub struct Search {
     pub game: Chess,
@@ -26,8 +21,8 @@ pub struct Search {
     start_time: SystemTime,
 }
 
-impl SearchEngine for Search {
-    fn go(&mut self) {
+impl Search {
+    pub fn go(&mut self) {
         self.play_time = match self.game.turn() {
             Color::White => self.wtime,
             Color::Black => self.btime,

@@ -1,28 +1,9 @@
-use crate::search::{Search, SearchEngine};
+use crate::search::Search;
 use crate::timecontrol::TimeControl;
 use queues::{queue, IsQueue, Queue};
 use shakmaty::fen::Fen;
 use shakmaty::uci::UciMove;
 use shakmaty::{CastlingMode, Chess, Position};
-
-pub trait UciParser {
-    fn parse_command(&mut self, command: &str);
-    fn parse_tokens(&mut self, tokens: &mut Queue<&str>);
-    fn handle_go(&mut self, tokens: &mut Queue<&str>);
-    fn handle_btime(&mut self, tokens: &mut Queue<&str>);
-    fn handle_wtime(&mut self, tokens: &mut Queue<&str>);
-    fn handle_go_depth(&mut self, tokens: &mut Queue<&str>);
-    fn handle_go_movetime(&mut self, tokens: &mut Queue<&str>);
-    fn handle_position(&mut self, tokens: &mut Queue<&str>);
-    fn handle_position_startpos(&mut self, tokens: &mut Queue<&str>);
-    fn handle_position_fen(&mut self, tokens: &mut Queue<&str>);
-    fn handle_setoption(&self, tokens: &mut Queue<&str>);
-    fn handle_go_infinite(&mut self, tokens: &mut Queue<&str>);
-    fn handle_ucinewgame(&mut self);
-    fn handle_isready(&self);
-    fn handle_quit(&self);
-    fn handle_uci(&self);
-}
 
 #[allow(dead_code)]
 enum UciOptionType {
@@ -62,8 +43,8 @@ impl Default for Uci {
     }
 }
 
-impl UciParser for Uci {
-    fn parse_command(&mut self, command: &str) {
+impl Uci {
+    pub fn parse_command(&mut self, command: &str) {
         let tokens_vec: Vec<&str> = command.split_whitespace().collect();
         let mut tokens: Queue<&str> = queue![];
 

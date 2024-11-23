@@ -1,4 +1,4 @@
-use crate::uci::{Uci, UciParser};
+use crate::uci::Uci;
 use std::io;
 
 mod bound;
