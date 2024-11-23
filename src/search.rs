@@ -102,13 +102,17 @@ impl SearchEngine for Search {
         }
 
         let moves = &pos.legal_moves();
-
-        if moves.len() == 0 && pos.is_checkmate() {
-            return -10000 + ply as i32;
-        }
-
         let start_alpha = alpha;
         let mut best_score = -100000;
+
+        if moves.len() == 0 {
+            if pos.is_checkmate() {
+                return -10000 + ply as i32;
+            }
+
+            return best_score;
+        }
+
         let mut best_move = &moves[0];
 
         for m in moves {
