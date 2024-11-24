@@ -34,7 +34,7 @@ impl Search {
 
         for current_depth in 1..self.depth + 1 {
             let pos = self.game.clone();
-            let iteration_score = self.negamax(&pos, current_depth, -100000, 100000, 0);
+            let iteration_score = self.negamax(&pos, current_depth, -100000, 100000, 0, true);
             let duration = SystemTime::now().duration_since(self.start_time);
             let elapsed = duration.unwrap().as_millis();
 
@@ -94,6 +94,20 @@ impl Search {
                 || (entry.bound == Bound::Beta && entry.score >= beta))
         {
             return entry.score;
+        }
+
+        if null_move
+            && !pos.is_check()
+            && ply > 0
+            && depth > 4
+            && self.eval.count_big_pieces(pos) > 0
+        {
+            let pos = pos.clone().swap_turn().expect("NMP: failed to swap turn");
+            let score = -self.negamax(&pos, depth - 1 - 4, -beta, -beta + 1, ply + 1, false);
+
+            if score >= beta {
+                return beta;
+            }
         }
 
         let moves = &mut pos.legal_moves();

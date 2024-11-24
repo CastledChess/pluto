@@ -1,4 +1,4 @@
-use shakmaty::{Board, Color};
+use shakmaty::{Board, Chess, Color, Position, Role};
 
 pub struct Eval {
     w_square_tables: [[i32; 64]; 6],
@@ -40,6 +40,26 @@ impl Eval {
                     value + PIECE_SQUARE_TABLES[role as usize][63 - sq_index];
             }
         }
+    }
+
+    pub fn count_big_pieces(&self, pos: &Chess) -> i32 {
+        let mut big_pieces = 0;
+        let turn = pos.turn();
+
+        for (_, piece) in pos.board().clone().into_iter() {
+            if piece.color != turn {
+                continue;
+            }
+
+            match piece.role {
+                Role::Knight | Role::Bishop | Role::Rook | Role::Queen => {
+                    big_pieces += 1;
+                }
+                _ => (),
+            }
+        }
+
+        big_pieces
     }
 
     pub fn simple_eval(&mut self, board: Board, turn: Color) -> i32 {
