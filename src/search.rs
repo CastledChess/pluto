@@ -115,11 +115,11 @@ impl Search {
         let mut best_score = -100000;
 
         if moves.len() == 0 {
-            if pos.is_checkmate() {
-                return -10000 + ply as i32;
-            }
-
-            return best_score;
+            return if pos.is_checkmate() {
+                -100000 + ply as i32
+            } else {
+                0
+            };
         }
 
         let mut best_move = &moves[0];
