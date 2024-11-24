@@ -4,7 +4,7 @@ use crate::moves::DEFAULT_MOVE;
 use crate::timecontrol::TimeControl;
 use crate::transposition::TranspositionTable;
 use shakmaty::zobrist::{Zobrist64, ZobristHash};
-use shakmaty::{CastlingMode, Chess, Color, EnPassantMode, Move, Position, Role};
+use shakmaty::{CastlingMode, Chess, Color, EnPassantMode, Move, Position};
 use std::time::SystemTime;
 
 pub struct Search {
@@ -38,10 +38,10 @@ impl Search {
             let duration = SystemTime::now().duration_since(self.start_time);
             let elapsed = duration.unwrap().as_millis();
 
-            if self.time_control == TimeControl::MoveTime && elapsed > self.movetime as u128 {
-                break;
-            }
-            if self.time_control == TimeControl::WOrBTime && elapsed > self.play_time as u128 / 30 {
+            if (self.time_control == TimeControl::MoveTime && elapsed > self.movetime as u128)
+                || (self.time_control == TimeControl::WOrBTime
+                    && elapsed > self.play_time as u128 / 30)
+            {
                 break;
             }
 
@@ -63,20 +63,11 @@ impl Search {
         let duration = SystemTime::now().duration_since(self.start_time);
         let elapsed = duration.unwrap().as_millis();
 
-        match self.time_control {
-            TimeControl::WOrBTime => {
-                if elapsed > self.play_time as u128 / 30 {
-                    return 0;
-                }
-            }
-
-            TimeControl::MoveTime => {
-                if elapsed > self.movetime as u128 {
-                    return 0;
-                }
-            }
-            _ => {}
-        };
+        if (self.time_control == TimeControl::MoveTime && elapsed > self.movetime as u128)
+            || (self.time_control == TimeControl::WOrBTime && elapsed > self.play_time as u128 / 30)
+        {
+            return 0;
+        }
 
         if depth == 0 {
             return self.eval.simple_eval(pos.board().clone(), pos.turn());
@@ -116,32 +107,12 @@ impl Search {
             if moves[i] == entry._move {
                 move_scores.push(200);
             } else if let Some(capture) = moves[i].capture() {
-                let piece_value = match moves[i].role() {
-                    Role::Pawn => 1,
-                    Role::Knight => 3,
-                    Role::Bishop => 3,
-                    Role::Rook => 5,
-                    Role::Queen => 9,
-                    _ => 0,
-                };
-                let capture_value = match capture {
-                    Role::Pawn => 1,
-                    Role::Knight => 3,
-                    Role::Bishop => 3,
-                    Role::Rook => 5,
-                    Role::Queen => 9,
-                    _ => 0,
-                };
+                let piece_value = moves[i].role() as i32;
+                let capture_value = capture as i32;
 
                 move_scores.push(100 * capture_value - piece_value);
             } else if let Some(m) = moves[i].promotion() {
-                let promotion_value = match m {
-                    Role::Knight => 3,
-                    Role::Bishop => 3,
-                    Role::Rook => 5,
-                    Role::Queen => 9,
-                    _ => 0,
-                };
+                let promotion_value = m as i32;
 
                 move_scores.push(promotion_value);
             } else {
