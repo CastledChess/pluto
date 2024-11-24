@@ -2,9 +2,9 @@ use crate::bound::Bound;
 use crate::eval::Eval;
 use crate::moves::DEFAULT_MOVE;
 use crate::timecontrol::TimeControl;
-use crate::transposition::TranspositionTable;
+use crate::transposition::{TranspositionTable, TranspositionTableEntry};
 use shakmaty::zobrist::{Zobrist64, ZobristHash};
-use shakmaty::{CastlingMode, Chess, Color, EnPassantMode, Move, Position};
+use shakmaty::{CastlingMode, Chess, Color, EnPassantMode, Move, MoveList, Position};
 use std::time::SystemTime;
 
 pub struct Search {
@@ -30,6 +30,7 @@ impl Search {
 
         self.transposition_table.new_search();
         self.start_time = SystemTime::now();
+
         let mut best_move = DEFAULT_MOVE.clone();
 
         for current_depth in 1..self.depth + 1 {
@@ -38,12 +39,9 @@ impl Search {
             let duration = SystemTime::now().duration_since(self.start_time);
             let elapsed = duration.unwrap().as_millis();
 
-            if (self.time_control == TimeControl::MoveTime && elapsed > self.movetime as u128)
-                || (self.time_control == TimeControl::WOrBTime
-                    && elapsed > self.play_time as u128 / 30)
-            {
-                break;
-            }
+            if (self.time_control == TimeControl::MoveTime && elapsed > self.movetime as u128) ||
+                (self.time_control == TimeControl::WOrBTime && elapsed > self.play_time as u128 / 30)
+            { break; }
 
             best_move = self.iteration_move.clone();
 
@@ -63,15 +61,11 @@ impl Search {
         let duration = SystemTime::now().duration_since(self.start_time);
         let elapsed = duration.unwrap().as_millis();
 
-        if (self.time_control == TimeControl::MoveTime && elapsed > self.movetime as u128)
-            || (self.time_control == TimeControl::WOrBTime && elapsed > self.play_time as u128 / 30)
-        {
-            return 0;
-        }
+        if (self.time_control == TimeControl::MoveTime && elapsed > self.movetime as u128) ||
+            (self.time_control == TimeControl::WOrBTime && elapsed > self.play_time as u128 / 30)
+        { return 0; }
 
-        if depth == 0 {
-            return self.eval.simple_eval(pos.board().clone(), pos.turn());
-        }
+        if depth == 0 { return self.eval.simple_eval(pos); }
 
         let is_root = ply == 0;
         let position_key = pos.zobrist_hash::<Zobrist64>(EnPassantMode::Legal);
@@ -82,60 +76,41 @@ impl Search {
             && !is_root
             && entry.depth >= depth
             && (entry.bound == Bound::Exact
-                || (entry.bound == Bound::Alpha && entry.score <= alpha)
-                || (entry.bound == Bound::Beta && entry.score >= beta))
+            || (entry.bound == Bound::Alpha && entry.score <= alpha)
+            || (entry.bound == Bound::Beta && entry.score >= beta))
         {
             return entry.score;
         }
 
-        let moves = &mut pos.legal_moves();
-        let start_alpha = alpha;
-        let mut best_score = -100000;
+        let moves = pos.legal_moves();
 
         if moves.len() == 0 {
-            return if pos.is_checkmate() {
-                -100000 + ply as i32
-            } else {
-                0
+            return match pos.is_checkmate() {
+                true => -100000 + ply as i32,
+                false => 0,
             };
         }
 
-        let mut best_move = &moves[0];
-        let mut move_scores = vec![];
+        let start_alpha = alpha;
+        let mut best_score = -100000;
+        let ordered_moves = self.order_moves(entry, moves);
+        let mut best_move = &ordered_moves[0];
 
-        for i in 0..moves.len() {
-            if moves[i] == entry._move {
-                move_scores.push(200);
-            } else if let Some(capture) = moves[i].capture() {
-                let piece_value = moves[i].role() as i32;
-                let capture_value = capture as i32;
-
-                move_scores.push(100 * capture_value - piece_value);
-            } else if let Some(m) = moves[i].promotion() {
-                let promotion_value = m as i32;
-
-                move_scores.push(promotion_value);
-            } else {
-                move_scores.push(0);
-            }
-        }
-
-        let mut move_indices: Vec<usize> = (0..moves.len()).collect();
-        move_indices.sort_by_key(|&i| -move_scores[i]);
-
-        for &i in &move_indices {
-            let m = &moves[i];
-
+        for i in 0..ordered_moves.len() {
+            let m = &ordered_moves[i];
             let mut pos = pos.clone();
             pos.play_unchecked(&m);
-            let mut score;
 
-            if i == 0 {
-                score = -self.negamax(&pos, depth - 1, -beta, -alpha, ply + 1);
-            } else {
-                score = -self.negamax(&pos, depth - 1, -alpha - 1, -alpha, ply + 1);
-                if score > alpha && beta - alpha > 1 {
-                    score = -self.negamax(&pos, depth - 1, -beta, -alpha, ply + 1);
+            let mut score: i32;
+
+            match i {
+                0 => score = -self.negamax(&pos, depth - 1, -beta, -alpha, ply + 1),
+                _ => {
+                    score = -self.negamax(&pos, depth - 1, -alpha - 1, -alpha, ply + 1);
+
+                    if score > alpha && beta - alpha > 1 {
+                        score = -self.negamax(&pos, depth - 1, -beta, -alpha, ply + 1);
+                    }
                 }
             }
 
@@ -143,15 +118,9 @@ impl Search {
                 best_score = score;
                 best_move = m;
 
-                if is_root {
-                    self.iteration_move = best_move.clone();
-                }
-                if best_score > alpha {
-                    alpha = best_score
-                }
-                if alpha >= beta {
-                    break;
-                }
+                if is_root { self.iteration_move = best_move.clone(); }
+                if best_score > alpha { alpha = best_score }
+                if alpha >= beta { break; }
             }
         }
 
@@ -165,6 +134,31 @@ impl Search {
             .store(position_key, depth, best_score, bound, best_move.clone());
 
         best_score
+    }
+
+    fn move_importance(&self, entry: &TranspositionTableEntry, m: &Move) -> i32 {
+        match m {
+            m if m == &entry._move => 200,
+            m if m.capture().is_some() => {
+                let piece_value = m.role() as i32;
+                let capture_value = m.capture().unwrap() as i32;
+
+                50 * capture_value - piece_value
+            }
+            m if m.promotion().is_some() => m.promotion().unwrap() as i32,
+            _ => 0,
+        }
+    }
+
+    fn order_moves(&self, entry: TranspositionTableEntry, mut moves: MoveList) -> MoveList {
+        moves.sort_by(|a, b| {
+            let a_score = self.move_importance(&entry, &a);
+            let b_score = self.move_importance(&entry, &b);
+
+            b_score.cmp(&a_score)
+        });
+
+        moves
     }
 }
 
