@@ -59,7 +59,15 @@ impl Search {
         println!("bestmove {}", best_move.to_uci(CastlingMode::Standard));
     }
 
-    fn negamax(&mut self, pos: &Chess, depth: u32, mut alpha: i32, beta: i32, ply: u32) -> i32 {
+    fn negamax(
+        &mut self,
+        pos: &Chess,
+        depth: u32,
+        mut alpha: i32,
+        beta: i32,
+        ply: u32,
+        null_move: bool,
+    ) -> i32 {
         let duration = SystemTime::now().duration_since(self.start_time);
         let elapsed = duration.unwrap().as_millis();
 
@@ -128,7 +136,16 @@ impl Search {
 
             let mut pos = pos.clone();
             pos.play_unchecked(&m);
-            let score = -self.negamax(&pos, depth - 1, -beta, -alpha, ply + 1);
+            let mut score;
+
+            if i == 0 {
+                score = -self.negamax(&pos, depth - 1, -beta, -alpha, ply + 1, true);
+            } else {
+                score = -self.negamax(&pos, depth - 1, -alpha - 1, -alpha, ply + 1, true);
+                if score > alpha && beta - alpha > 1 {
+                    score = -self.negamax(&pos, depth - 1, -beta, -alpha, ply + 1, true);
+                }
+            }
 
             if score > best_score {
                 best_score = score;

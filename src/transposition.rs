@@ -27,10 +27,10 @@ impl TranspositionTable {
         }
     }
 
-    pub fn probe(&self, key: Zobrist64) -> &TranspositionTableEntry {
+    pub fn probe(&self, key: Zobrist64) -> TranspositionTableEntry {
         let index = key.0 as usize % self.length;
 
-        &self.table[index]
+        self.table[index].clone()
     }
 
     pub fn store(&mut self, key: Zobrist64, depth: u32, score: i32, bound: Bound, _move: Move) {
