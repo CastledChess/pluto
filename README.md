@@ -24,6 +24,8 @@ designed to analyse games for the Castled Chess Project.
     - Alpha-Beta Pruning
     - Iterative Deepening
     - Transposition Tables
+    - Move Ordering
+    - Principal Variation Search
 - Evaluation
     - Material
     - Piece Square Tables
@@ -40,9 +42,8 @@ cargo build --release
 ## Usage
 
 The engine uses the [Uci protocol](http://wbec-ridderkerk.nl/html/UCIProtocol.html), to communicate with the engine, you
-can use
-any UCI compatible GUI. Alternatively, you can run the engine in the terminal
-using the following command:
+can use any UCI compatible GUI. Alternatively, you can run the engine in the
+terminal using the following command:
 
 ```bash
 cargo run --release
