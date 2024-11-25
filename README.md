@@ -26,6 +26,7 @@ designed to analyse games for the Castled Chess Project.
     - Transposition Tables
     - Move Ordering
     - Principal Variation Search
+    - Reverse Futility Pruning
 - Evaluation
     - Material
     - Piece Square Tables
