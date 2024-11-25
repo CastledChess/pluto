@@ -82,6 +82,16 @@ impl Search {
             return entry.score;
         }
 
+        let is_pv = beta - alpha != 1;
+        let static_eval = self.eval.simple_eval(pos);
+
+        if !is_pv && depth <= 7 && !pos.is_check() {
+            let score = static_eval - 50 * depth as i32;
+            if score >= beta {
+                return static_eval;
+            }
+        }
+
         let moves = pos.legal_moves();
 
         if moves.len() == 0 {
