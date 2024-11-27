@@ -59,7 +59,7 @@ impl Search {
 
         if depth == 0 {
             self.info.nodes += 1;
-            return self.eval.simple_eval(pos);
+            return self.quiesce(pos, alpha, beta, 3);
         }
 
         let is_root = ply == 0;
@@ -143,6 +143,48 @@ impl Search {
 
         self.info.nodes += 1;
         best_score
+    }
+
+    fn quiesce(&mut self, pos: &Chess, mut alpha: i32, mut beta: i32, limit: u8) -> i32 {
+        // _nodes++;
+        // int standPat = Evaluate();
+        // if (limit == 0) return standPat;
+        // if (standPat >= beta) return beta;
+        // if (alpha < standPat) alpha = standPat;
+        //
+        // List<int> moves = _board.GetPseudoLegalCaptures();
+        //
+        // for (int i = 0; i < moves.Count; i++) {
+        //     if (!_board.MakeMove(moves[i])) continue;
+        //     int score = -Quiescence(-beta, -alpha, limit - 1);
+        //     _board.TakeBack();
+        //
+        //     if (score >= beta) return beta;
+        //     if (score > alpha) alpha = score;
+        // }
+        //
+        // return alpha;
+
+        self.info.nodes += 1;
+        let stand_pat = self.eval.simple_eval(pos);
+
+        if limit == 0 { return stand_pat; }
+        if stand_pat >= beta { return beta; }
+        if alpha < stand_pat { alpha = stand_pat; }
+
+        let moves = pos.capture_moves();
+
+        for m in moves {
+            let mut pos = pos.clone();
+            pos.play_unchecked(&m);
+
+            let score = -self.quiesce(&pos, -beta, -alpha, limit - 1);
+
+            if score >= beta { return beta; }
+            if score > alpha { alpha = score; }
+        }
+
+        alpha
     }
 
     fn move_importance(&self, entry: &TranspositionTableEntry, m: &Move) -> i32 {
