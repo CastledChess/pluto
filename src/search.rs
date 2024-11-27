@@ -15,6 +15,7 @@ pub struct Search {
     pub wtime: u32,
     pub btime: u32,
     play_time: u32,
+    nodes: u32,
     eval: Eval,
     iteration_move: Move,
     transposition_table: TranspositionTable,
@@ -28,6 +29,7 @@ impl Search {
             Color::Black => self.btime,
         };
 
+        self.nodes = 0;
         self.transposition_table.new_search();
         self.start_time = SystemTime::now();
 
@@ -46,8 +48,10 @@ impl Search {
             best_move = self.iteration_move.clone();
 
             println!(
-                "info depth {} score cp {} time {} pv {}",
+                "info depth {} nodes {} nps {} score cp {} time {} pv {}",
                 current_depth,
+                self.nodes,
+                self.nodes as u128 * 1000 / (elapsed + 1),
                 iteration_score,
                 elapsed,
                 best_move.to_uci(CastlingMode::Standard)
@@ -63,9 +67,15 @@ impl Search {
 
         if (self.time_control == TimeControl::MoveTime && elapsed > self.movetime as u128) ||
             (self.time_control == TimeControl::WOrBTime && elapsed > self.play_time as u128 / 30)
-        { return 0; }
+        {
+            self.nodes += 1;
+            return 0;
+        }
 
-        if depth == 0 { return self.eval.simple_eval(pos); }
+        if depth == 0 {
+            self.nodes += 1;
+            return self.eval.simple_eval(pos);
+        }
 
         let is_root = ply == 0;
         let position_key = pos.zobrist_hash::<Zobrist64>(EnPassantMode::Legal);
@@ -79,6 +89,7 @@ impl Search {
             || (entry.bound == Bound::Alpha && entry.score <= alpha)
             || (entry.bound == Bound::Beta && entry.score >= beta))
         {
+            self.nodes += 1;
             return entry.score;
         }
 
@@ -88,6 +99,7 @@ impl Search {
         if !is_pv && depth <= 7 && !pos.is_check() {
             let score = static_eval - 50 * depth as i32;
             if score >= beta {
+                self.nodes += 1;
                 return static_eval;
             }
         }
@@ -95,6 +107,7 @@ impl Search {
         let moves = pos.legal_moves();
 
         if moves.len() == 0 {
+            self.nodes += 1;
             return match pos.is_checkmate() {
                 true => -100000 + ply as i32,
                 false => 0,
@@ -143,6 +156,7 @@ impl Search {
         self.transposition_table
             .store(position_key, depth, best_score, bound, best_move.clone());
 
+        self.nodes += 1;
         best_score
     }
 
@@ -182,6 +196,7 @@ impl Default for Search {
             wtime: 0,
             btime: 0,
             play_time: 0,
+            nodes: 0,
             eval: Eval::default(),
             iteration_move: DEFAULT_MOVE.clone(),
             start_time: SystemTime::now(),
