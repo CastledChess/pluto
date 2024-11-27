@@ -146,25 +146,6 @@ impl Search {
     }
 
     fn quiesce(&mut self, pos: &Chess, mut alpha: i32, beta: i32, limit: u8) -> i32 {
-        // _nodes++;
-        // int standPat = Evaluate();
-        // if (limit == 0) return standPat;
-        // if (standPat >= beta) return beta;
-        // if (alpha < standPat) alpha = standPat;
-        //
-        // List<int> moves = _board.GetPseudoLegalCaptures();
-        //
-        // for (int i = 0; i < moves.Count; i++) {
-        //     if (!_board.MakeMove(moves[i])) continue;
-        //     int score = -Quiescence(-beta, -alpha, limit - 1);
-        //     _board.TakeBack();
-        //
-        //     if (score >= beta) return beta;
-        //     if (score > alpha) alpha = score;
-        // }
-        //
-        // return alpha;
-
         self.info.nodes += 1;
         let stand_pat = self.eval.simple_eval(pos);
 
