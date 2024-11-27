@@ -145,7 +145,7 @@ impl Search {
         best_score
     }
 
-    fn quiesce(&mut self, pos: &Chess, mut alpha: i32, mut beta: i32, limit: u8) -> i32 {
+    fn quiesce(&mut self, pos: &Chess, mut alpha: i32, beta: i32, limit: u8) -> i32 {
         // _nodes++;
         // int standPat = Evaluate();
         // if (limit == 0) return standPat;
