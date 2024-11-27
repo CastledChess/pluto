@@ -4,10 +4,10 @@ use std::io;
 mod bound;
 mod eval;
 mod moves;
-mod search;
-mod timecontrol;
 mod transposition;
 mod uci;
+mod search;
+mod time_control;
 
 fn main() {
     println!("id name CastledEngine");

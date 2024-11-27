@@ -5,16 +5,16 @@ use shakmaty::Move;
 
 pub struct TranspositionTableEntry {
     pub key: Zobrist64,
-    pub depth: u32,
+    pub depth: u8,
     pub score: i32,
     pub bound: Bound,
     pub _move: Move,
-    pub generation: u32,
+    pub generation: u8,
 }
 
 pub struct TranspositionTable {
     pub table: Vec<TranspositionTableEntry>,
-    pub generation: u32,
+    pub generation: u8,
     length: usize,
 }
 
@@ -33,7 +33,7 @@ impl TranspositionTable {
         self.table[index].clone()
     }
 
-    pub fn store(&mut self, key: Zobrist64, depth: u32, score: i32, bound: Bound, _move: Move) {
+    pub fn store(&mut self, key: Zobrist64, depth: u8, score: i32, bound: Bound, _move: Move) {
         let index = key.0 as usize % self.table.len();
         let entry = TranspositionTableEntry {
             key,

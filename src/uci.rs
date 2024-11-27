@@ -1,9 +1,9 @@
-use crate::search::Search;
-use crate::timecontrol::TimeControl;
 use queues::{queue, IsQueue, Queue};
 use shakmaty::fen::Fen;
 use shakmaty::uci::UciMove;
 use shakmaty::{CastlingMode, Chess, Position};
+use crate::search::search::Search;
+use crate::time_control::time_mode::TimeMode;
 
 #[allow(dead_code)]
 enum UciOptionType {
@@ -91,43 +91,43 @@ impl Uci {
 
     fn handle_btime(&mut self, tokens: &mut Queue<&str>) {
         let token = tokens.remove().unwrap();
-        let time = token.parse::<u32>().unwrap();
+        let time = token.parse::<u128>().unwrap();
 
-        self.search.depth = 1000;
-        self.search.time_control = TimeControl::WOrBTime;
-        self.search.btime = time;
+        self.search.params.depth = u8::MAX;
+        self.search.time_controller.time_mode = TimeMode::WOrBTime;
+        self.search.params.b_time = time;
 
         self.handle_go(tokens);
     }
 
     fn handle_wtime(&mut self, tokens: &mut Queue<&str>) {
         let token = tokens.remove().unwrap();
-        let time = token.parse::<u32>().unwrap();
+        let time = token.parse::<u128>().unwrap();
 
-        self.search.depth = 1000;
-        self.search.time_control = TimeControl::WOrBTime;
-        self.search.wtime = time;
+        self.search.params.depth = u8::MAX;
+        self.search.time_controller.time_mode = TimeMode::WOrBTime;
+        self.search.params.w_time = time;
 
         self.handle_go(tokens);
     }
 
     fn handle_go_depth(&mut self, tokens: &mut Queue<&str>) {
         let token = tokens.remove().unwrap();
-        let depth = token.parse::<u64>().unwrap();
+        let depth = token.parse::<u8>().unwrap();
 
-        self.search.depth = depth as u32;
-        self.search.time_control = TimeControl::None;
+        self.search.params.depth = depth;
+        self.search.time_controller.time_mode = TimeMode::Infinite;
 
         self.handle_go(tokens);
     }
 
     fn handle_go_movetime(&mut self, tokens: &mut Queue<&str>) {
         let token = tokens.remove().unwrap();
-        let time = token.parse::<u32>().unwrap();
+        let time = token.parse::<u128>().unwrap();
 
-        self.search.movetime = time;
-        self.search.time_control = TimeControl::MoveTime;
-        self.search.depth = 1000;
+        self.search.params.move_time = time;
+        self.search.time_controller.time_mode = TimeMode::MoveTime;
+        self.search.params.depth = u8::MAX;
 
         self.handle_go(tokens);
     }
@@ -211,8 +211,8 @@ impl Uci {
     }
 
     fn handle_go_infinite(&mut self, tokens: &mut Queue<&str>) {
-        self.search.depth = 1000;
-        self.search.time_control = TimeControl::Infinite;
+        self.search.params.depth = u8::MAX;
+        self.search.time_controller.time_mode = TimeMode::Infinite;
 
         self.handle_go(tokens);
     }
