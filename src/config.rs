@@ -1,5 +1,4 @@
 use serde_derive::Deserialize;
-use std::fs;
 use std::process::exit;
 use toml;
 
@@ -19,14 +18,11 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn load(filename: &str) -> Result<Self, String> {
-        let contents = match fs::read_to_string(filename) {
-            Ok(c) => c,
-            Err(_) => {
-                eprintln!("Could not read file `{}`", filename);
-                exit(1);
-            }
-        };
+    pub fn load() -> Result<Self, String> {
+        let filename = "../Config.toml";
+        let bytes = include_bytes!("../Config.toml");
+
+        let contents = String::from_utf8_lossy(bytes).to_string();
 
         let data: Data = match toml::from_str(&contents) {
             Ok(d) => d,

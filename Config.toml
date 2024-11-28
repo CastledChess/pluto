@@ -1,7 +1,7 @@
 [config]
-qsearch_depth = 1
+qsearch_depth = 2
 rfp_depth = 7
 rfp_depth_multiplier = 50
-tt_size = 0x7FFFFF # ~250 MB
+tt_size = 0x7FFFFF
 mo_tt_entry_value = 200
 mo_capture_value = 50

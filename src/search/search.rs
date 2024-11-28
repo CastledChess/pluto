@@ -20,7 +20,6 @@ pub struct Search {
     config: Config,
 }
 
-
 impl Search {
     pub fn go(&mut self) {
         self.time_controller.setup(&self.params, &self.game);
@@ -177,7 +176,7 @@ impl Search {
 
                 self.config.mo_capture_value * capture_value - piece_value
             }
-            m if m.is_capture() => m.promotion().unwrap() as i32,
+            m if m.is_promotion() => m.promotion().unwrap() as i32,
             _ => 0,
         }
     }
@@ -196,7 +195,7 @@ impl Search {
 
 impl Default for Search {
     fn default() -> Self {
-        let config = Config::load("Config.toml").unwrap();
+        let config = Config::load().unwrap();
 
         Search {
             game: Chess::default(),
