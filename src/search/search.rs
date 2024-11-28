@@ -146,7 +146,7 @@ impl Search {
 
     fn quiesce(&mut self, pos: &Chess, mut alpha: i32, beta: i32, limit: u8) -> i32 {
         self.info.nodes += 1;
-        let stand_pat = self.eval.simple_eval(pos);
+        let stand_pat = self.eval.pesto_eval(pos);
 
         if limit == 0 { return stand_pat; }
         if stand_pat >= beta { return beta; }
