@@ -8,9 +8,9 @@ fi
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
-cd "$SCRIPT_DIR/.." || exit
-
 folder_path="$SCRIPT_DIR/../builds/$1"
+
+echo "$folder_path"
 
 RUSTFLAGS='-C target-cpu=native' cargo build --release
 
