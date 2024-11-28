@@ -8,6 +8,7 @@ mod transposition;
 mod uci;
 mod search;
 mod time_control;
+mod config;
 
 fn main() {
     println!("id name CastledEngine");

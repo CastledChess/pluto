@@ -4,6 +4,7 @@ use crate::moves::DEFAULT_MOVE;
 use crate::transposition::{TranspositionTable, TranspositionTableEntry};
 use shakmaty::zobrist::{Zobrist64, ZobristHash};
 use shakmaty::{CastlingMode, Chess, EnPassantMode, Move, MoveList, Position};
+use crate::config::Config;
 use crate::search::search_info::SearchInfo;
 use crate::search::search_params::SearchParams;
 use crate::time_control::time_controller::TimeController;
@@ -16,6 +17,7 @@ pub struct Search {
     eval: Eval,
     iteration_move: Move,
     transposition_table: TranspositionTable,
+    config: Config,
 }
 
 
@@ -29,8 +31,9 @@ impl Search {
         let mut best_move = DEFAULT_MOVE.clone();
 
         for current_depth in 0..self.params.depth {
+            self.info.depth = current_depth + 1;
             let pos = self.game.clone();
-            let iteration_score = self.negamax(&pos, current_depth + 1, -100000, 100000, 0);
+            let iteration_score = self.negamax(&pos, self.info.depth, -100000, 100000, 0);
 
             if self.time_controller.is_time_up() { break; }
 
@@ -39,7 +42,7 @@ impl Search {
 
             println!(
                 "info depth {} nodes {} nps {} score cp {} time {} pv {}",
-                current_depth + 1,
+                self.info.depth,
                 self.info.nodes,
                 self.info.nodes as u128 * 1000 / (elapsed + 1),
                 iteration_score,
@@ -57,10 +60,7 @@ impl Search {
             return 0;
         }
 
-        if depth == 0 {
-            self.info.nodes += 1;
-            return self.quiesce(pos, alpha, beta, 3);
-        }
+        if depth == 0 { return self.quiesce(pos, alpha, beta, self.config.qsearch_depth); }
 
         let is_root = ply == 0;
         let position_key = pos.zobrist_hash::<Zobrist64>(EnPassantMode::Legal);
@@ -81,8 +81,8 @@ impl Search {
         let is_pv = beta - alpha != 1;
         let static_eval = self.eval.simple_eval(pos);
 
-        if !is_pv && depth <= 7 && !pos.is_check() {
-            let score = static_eval - 50 * depth as i32;
+        if !is_pv && depth <= self.config.rfp_depth && !pos.is_check() {
+            let score = static_eval - self.config.rfp_depth_multiplier * depth as i32;
             if score >= beta {
                 self.info.nodes += 1;
                 return static_eval;
@@ -170,14 +170,14 @@ impl Search {
 
     fn move_importance(&self, entry: &TranspositionTableEntry, m: &Move) -> i32 {
         match m {
-            m if m == &entry._move => 200,
-            m if m.capture().is_some() => {
+            m if m == &entry._move => self.config.mo_tt_entry_value,
+            m if m.is_capture() => {
                 let piece_value = m.role() as i32;
                 let capture_value = m.capture().unwrap() as i32;
 
-                50 * capture_value - piece_value
+                self.config.mo_capture_value * capture_value - piece_value
             }
-            m if m.promotion().is_some() => m.promotion().unwrap() as i32,
+            m if m.is_capture() => m.promotion().unwrap() as i32,
             _ => 0,
         }
     }
@@ -196,14 +196,17 @@ impl Search {
 
 impl Default for Search {
     fn default() -> Self {
+        let config = Config::load("Config.toml").unwrap();
+
         Search {
             game: Chess::default(),
             eval: Eval::default(),
             iteration_move: DEFAULT_MOVE.clone(),
-            transposition_table: TranspositionTable::new(0x7FFFFF),
+            transposition_table: TranspositionTable::new(config.tt_size),
             params: SearchParams::default(),
             info: SearchInfo::default(),
             time_controller: TimeController::default(),
+            config,
         }
     }
 }
