@@ -53,7 +53,7 @@ impl Search {
         println!("bestmove {}", best_move.to_uci(CastlingMode::Standard));
     }
 
-    fn negamax(&mut self, pos: &Chess, depth: u8, mut alpha: i32, beta: i32, ply: u32) -> i32 {
+    fn negamax(&mut self, pos: &Chess, mut depth: u8, mut alpha: i32, beta: i32, ply: u32) -> i32 {
         if self.time_controller.is_time_up() {
             self.info.nodes += 1;
             return 0;
@@ -79,8 +79,11 @@ impl Search {
 
         let is_pv = beta - alpha != 1;
         let static_eval = self.eval.simple_eval(pos);
+        let is_check = pos.is_check();
+        
+        if is_check { depth += 1; }
 
-        if !is_pv && depth <= self.config.rfp_depth && !pos.is_check() {
+        if !is_pv && depth <= self.config.rfp_depth && !is_check {
             let score = static_eval - self.config.rfp_depth_multiplier * depth as i32;
             if score >= beta {
                 self.info.nodes += 1;
