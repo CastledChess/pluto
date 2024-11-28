@@ -29,8 +29,7 @@ designed to analyse games for the Castled Chess Project.
     - Reverse Futility Pruning
     - Quiescence Search
 - Evaluation
-    - Material
-    - Piece Square Tables
+    - Pesto Evaluation
 - Move Generation using [shakmaty](https://github.com/niklasf/shakmaty)
 
 ## Building

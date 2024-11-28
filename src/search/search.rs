@@ -23,12 +23,12 @@ pub struct Search {
 impl Search {
     pub fn go(&mut self) {
         self.time_controller.setup(&self.params, &self.game);
-
         self.info.nodes = 0;
         self.transposition_table.new_search();
 
         let mut best_move = DEFAULT_MOVE.clone();
 
+        /* Iterative deepening */
         for current_depth in 0..self.params.depth {
             self.info.depth = current_depth + 1;
             let pos = self.game.clone();
@@ -65,6 +65,7 @@ impl Search {
         let position_key = pos.zobrist_hash::<Zobrist64>(EnPassantMode::Legal);
         let entry = self.transposition_table.probe(position_key);
 
+        /* Transposition Table Cut-offs */
         if entry.key == position_key
             && entry.generation == self.transposition_table.generation
             && !is_root
@@ -80,6 +81,7 @@ impl Search {
         let is_pv = beta - alpha != 1;
         let static_eval = self.eval.simple_eval(pos);
 
+        /* Reverse Futility Pruning */
         if !is_pv && depth <= self.config.rfp_depth && !pos.is_check() {
             let score = static_eval - self.config.rfp_depth_multiplier * depth as i32;
             if score >= beta {
@@ -90,6 +92,7 @@ impl Search {
 
         let moves = pos.legal_moves();
 
+        /* Checkmate/Draw Detection */
         if moves.len() == 0 {
             self.info.nodes += 1;
             return match pos.is_checkmate() {
@@ -110,6 +113,7 @@ impl Search {
 
             let mut score: i32;
 
+            /* Principal Variation Search */
             match i {
                 0 => score = -self.negamax(&pos, depth - 1, -beta, -alpha, ply + 1),
                 _ => {
