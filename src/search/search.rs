@@ -1,13 +1,13 @@
 use crate::bound::Bound;
+use crate::config::Config;
 use crate::eval::Eval;
 use crate::moves::DEFAULT_MOVE;
-use crate::transposition::{TranspositionTable, TranspositionTableEntry};
-use shakmaty::zobrist::{Zobrist64, ZobristHash};
-use shakmaty::{CastlingMode, Chess, EnPassantMode, Move, MoveList, Position};
-use crate::config::Config;
 use crate::search::search_info::SearchInfo;
 use crate::search::search_params::SearchParams;
 use crate::time_control::time_controller::TimeController;
+use crate::transposition::{TranspositionTable, TranspositionTableEntry};
+use shakmaty::zobrist::{Zobrist64, ZobristHash};
+use shakmaty::{CastlingMode, Chess, EnPassantMode, Move, MoveList, Position};
 
 pub struct Search {
     pub game: Chess,
