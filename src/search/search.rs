@@ -1,3 +1,4 @@
+use std::array::from_fn;
 use crate::bound::Bound;
 use crate::config::Config;
 use crate::eval::Eval;
@@ -18,6 +19,8 @@ pub struct Search {
     iteration_move: Move,
     transposition_table: TranspositionTable,
     config: Config,
+    pv_length: [i32;64],
+    pv_table: [[Move;64];64]
 }
 
 impl Search {
@@ -48,12 +51,20 @@ impl Search {
                 elapsed,
                 best_move.to_uci(CastlingMode::Standard)
             );
+
+            for count in 0.. self.pv_length[0] {
+                print!("{}", self.pv_table[0][count as usize]);
+                print!(" ");
+            }
+            println!()
+
         }
 
         println!("bestmove {}", best_move.to_uci(CastlingMode::Standard));
     }
 
-    fn negamax(&mut self, pos: &Chess, depth: u8, mut alpha: i32, beta: i32, ply: u32) -> i32 {
+    fn negamax(&mut self, pos: &Chess, depth: u8, mut alpha: i32, beta: i32, ply: usize) -> i32 {
+        self.pv_length[ply] = ply as i32;
         if self.time_controller.is_time_up() {
             self.info.nodes += 1;
             return 0;
@@ -130,7 +141,18 @@ impl Search {
                 best_move = m;
 
                 if is_root { self.iteration_move = best_move.clone(); }
-                if best_score > alpha { alpha = best_score }
+                if best_score > alpha {
+                    // Stocking PV search Line
+                    self.pv_table[ply][ply] = m.clone();
+
+                    for next_ply in ply as i32 + 1..self.pv_length[ply + 1] {
+                        self.pv_table[ply][next_ply as usize] = self.pv_table[ply + 1][next_ply as usize].clone();
+                    }
+
+                    self.pv_length[ply] = self.pv_length[ply+1];
+
+                    alpha = best_score
+                }
                 if alpha >= beta { break; }
             }
         }
@@ -209,6 +231,8 @@ impl Default for Search {
             params: SearchParams::default(),
             info: SearchInfo::default(),
             time_controller: TimeController::default(),
+            pv_table: from_fn(|_| from_fn (|_| DEFAULT_MOVE.clone())),
+            pv_length: [0;64],
             config,
         }
     }
