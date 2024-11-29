@@ -1,8 +1,8 @@
-use std::array::from_fn;
 use crate::bound::Bound;
 use crate::config::Config;
 use crate::eval::Eval;
 use crate::moves::DEFAULT_MOVE;
+use crate::principal_variation::PvTable;
 use crate::search::search_info::SearchInfo;
 use crate::search::search_params::SearchParams;
 use crate::time_control::time_controller::TimeController;
@@ -19,8 +19,7 @@ pub struct Search {
     iteration_move: Move,
     transposition_table: TranspositionTable,
     config: Config,
-    pv_length: [i32;64],
-    pv_table: [[Move;64];64]
+    pv_table: PvTable,
 }
 
 impl Search {
@@ -39,8 +38,10 @@ impl Search {
 
             if self.time_controller.is_time_up() { break; }
 
-            best_move = self.iteration_move.clone();
+            best_move = self.pv_table.get_best_move();
+
             let elapsed = self.time_controller.elapsed();
+            let pv = self.pv_table.collect();
 
             println!(
                 "info depth {} nodes {} nps {} score cp {} time {} pv {}",
@@ -49,22 +50,16 @@ impl Search {
                 self.info.nodes as u128 * 1000 / (elapsed + 1),
                 iteration_score,
                 elapsed,
-                best_move.to_uci(CastlingMode::Standard)
+                pv.join(" ")
             );
-
-            for count in 0.. self.pv_length[0] {
-                print!("{}", self.pv_table[0][count as usize]);
-                print!(" ");
-            }
-            println!()
-
         }
 
         println!("bestmove {}", best_move.to_uci(CastlingMode::Standard));
     }
 
     fn negamax(&mut self, pos: &Chess, depth: u8, mut alpha: i32, beta: i32, ply: usize) -> i32 {
-        self.pv_length[ply] = ply as i32;
+        self.pv_table.update_length(ply);
+
         if self.time_controller.is_time_up() {
             self.info.nodes += 1;
             return 0;
@@ -143,13 +138,7 @@ impl Search {
                 if is_root { self.iteration_move = best_move.clone(); }
                 if best_score > alpha {
                     // Stocking PV search Line
-                    self.pv_table[ply][ply] = m.clone();
-
-                    for next_ply in ply as i32 + 1..self.pv_length[ply + 1] {
-                        self.pv_table[ply][next_ply as usize] = self.pv_table[ply + 1][next_ply as usize].clone();
-                    }
-
-                    self.pv_length[ply] = self.pv_length[ply+1];
+                    self.pv_table.store(ply, best_move.clone());
 
                     alpha = best_score
                 }
@@ -231,8 +220,7 @@ impl Default for Search {
             params: SearchParams::default(),
             info: SearchInfo::default(),
             time_controller: TimeController::default(),
-            pv_table: from_fn(|_| from_fn (|_| DEFAULT_MOVE.clone())),
-            pv_length: [0;64],
+            pv_table: PvTable::default(),
             config,
         }
     }

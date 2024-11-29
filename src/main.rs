@@ -9,6 +9,7 @@ mod uci;
 mod search;
 mod time_control;
 mod config;
+mod principal_variation;
 
 fn main() {
     println!("id name CastledEngine");
