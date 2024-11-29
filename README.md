@@ -28,6 +28,7 @@ designed to analyse games for the Castled Chess Project.
     - Principal Variation Search
     - Reverse Futility Pruning
     - Quiescence Search
+    - Draw & Checkmate Detection
 - Evaluation
     - Pesto Evaluation
 - Move Generation using [shakmaty](https://github.com/niklasf/shakmaty)

@@ -18,11 +18,21 @@ pub struct Search {
     eval: Eval,
     iteration_move: Move,
     transposition_table: TranspositionTable,
+    history: Vec<Zobrist64>,
     config: Config,
     pv_table: PvTable,
 }
 
 impl Search {
+    pub fn make_move(&mut self, pos: &mut Chess, m: &Move) {
+        pos.play_unchecked(m);
+        self.history.push(pos.zobrist_hash(EnPassantMode::Legal));
+    }
+
+    pub fn undo_move(&mut self) {
+        self.history.pop();
+    }
+
     pub fn go(&mut self) {
         self.time_controller.setup(&self.params, &self.game);
         self.info.nodes = 0;
@@ -96,6 +106,12 @@ impl Search {
             }
         }
 
+        /* Threefold Repetition Detection */
+        if self.history.iter().filter(|&x| x == &position_key).count() >= 2 {
+            self.info.nodes += 1;
+            return 0;
+        }
+
         let moves = pos.legal_moves();
 
         /* Checkmate/Draw Detection */
@@ -115,7 +131,7 @@ impl Search {
         for i in 0..ordered_moves.len() {
             let m = &ordered_moves[i];
             let mut pos = pos.clone();
-            pos.play_unchecked(&m);
+            self.make_move(&mut pos, m);
 
             let mut score: i32;
 
@@ -130,6 +146,8 @@ impl Search {
                     }
                 }
             }
+
+            self.undo_move();
 
             if score > best_score {
                 best_score = score;
@@ -171,9 +189,9 @@ impl Search {
 
         for m in moves {
             let mut pos = pos.clone();
-            pos.play_unchecked(&m);
-
+            self.make_move(&mut pos, &m);
             let score = -self.quiesce(&pos, -beta, -alpha, limit - 1);
+            self.undo_move();
 
             if score >= beta { return beta; }
             if score > alpha { alpha = score; }
@@ -220,6 +238,7 @@ impl Default for Search {
             params: SearchParams::default(),
             info: SearchInfo::default(),
             time_controller: TimeController::default(),
+            history: Vec::new(),
             pv_table: PvTable::default(),
             config,
         }
