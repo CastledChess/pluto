@@ -10,6 +10,7 @@ mod search;
 mod time_control;
 mod config;
 mod principal_variation;
+mod nnue;
 
 fn main() {
     println!("id name CastledEngine");

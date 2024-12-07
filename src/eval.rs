@@ -1,3 +1,4 @@
+use crate::nnue::NNUEState;
 use shakmaty::{Chess, Color, Position};
 
 pub struct Eval {
@@ -8,6 +9,7 @@ pub struct Eval {
     w_eg_square_tables: [[i32; 64]; 6],
     b_eg_square_tables: [[i32; 64]; 6],
     phases: [i32; 6],
+    nnue_piece_values: [i32; 6],
 }
 
 impl Eval {
@@ -49,6 +51,7 @@ impl Eval {
             w_eg_square_tables,
             b_eg_square_tables,
             phases: [0, 1, 1, 2, 4, 0],
+            nnue_piece_values: [161, 446, 464, 705, 1322, 0],
         }
     }
 }
@@ -95,6 +98,20 @@ impl Eval {
         }
 
         (mg_eval * phase + eg_eval * (24 - phase)) / 24 * if turn == Color::White { 1 } else { -1 }
+    }
+
+    pub fn nnue_eval(&self, state: &NNUEState, pos: &Chess) -> i32 {
+        let board = pos.board().clone();
+        let trun = pos.turn();
+        let eval = state.evaluate(trun);
+
+        let total_material =
+            board.knights().count() as i32 * self.nnue_piece_values[1] +
+                board.bishops().count() as i32 * self.nnue_piece_values[2] +
+                board.rooks().count() as i32 * self.nnue_piece_values[3] +
+                board.queens().count() as i32 * self.nnue_piece_values[4];
+
+        (eval * (700 + total_material / 32)) / 1024
     }
 }
 
