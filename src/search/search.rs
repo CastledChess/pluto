@@ -2,13 +2,16 @@ use crate::bound::Bound;
 use crate::config::Config;
 use crate::eval::Eval;
 use crate::moves::DEFAULT_MOVE;
+use crate::nnue::NNUEState;
+use crate::nnue::OFF;
+use crate::nnue::ON;
 use crate::principal_variation::PvTable;
 use crate::search::search_info::SearchInfo;
 use crate::search::search_params::SearchParams;
 use crate::time_control::time_controller::TimeController;
 use crate::transposition::{TranspositionTable, TranspositionTableEntry};
 use shakmaty::zobrist::{Zobrist64, ZobristHash};
-use shakmaty::{CastlingMode, Chess, EnPassantMode, Move, MoveList, Position};
+use shakmaty::{CastlingMode, CastlingSide, Chess, Color, EnPassantMode, Move, MoveList, Piece, Position, Square};
 
 pub struct Search {
     pub game: Chess,
@@ -21,12 +24,78 @@ pub struct Search {
     history: Vec<Zobrist64>,
     config: Config,
     pv_table: PvTable,
+    nnue_state: NNUEState,
 }
 
 impl Search {
+    pub fn make_move_nnue(&mut self, pos: &mut Chess, m: &Move) {
+        self.nnue_state.push();
+        let turn = pos.turn();
+
+        match m {
+            m if m.is_en_passant() => {
+                let ep_target = pos.ep_square(EnPassantMode::Legal).unwrap();
+                self.nnue_state.manual_update::<OFF>((!turn).pawn(), ep_target);
+            }
+            m if m.is_capture() => {
+                let capture = m.capture().unwrap();
+                let pcolor = !turn;
+
+                let piece = Piece {
+                    color: pcolor,
+                    role: capture,
+                };
+
+                self.nnue_state.manual_update::<OFF>(piece, m.to());
+            }
+            m if m.castling_side().is_some() => {
+                let cas = m.castling_side().unwrap();
+                let rook = turn.rook();
+
+                let rook_src = match cas {
+                    CastlingSide::KingSide => if turn == Color::White { 7 } else { 63 },
+                    CastlingSide::QueenSide => if turn == Color::White { 0 } else { 56 },
+                    _ => panic!("Invalid castling side"),
+                };
+
+                self.nnue_state.move_update(rook, Square::new(rook_src), cas.rook_to(turn));
+            }
+            m if m.is_promotion() => {
+                let piece = Piece {
+                    color: turn,
+                    role: m.role(),
+                };
+
+                let promotion = Piece {
+                    color: turn,
+                    role: m.promotion().unwrap(),
+                };
+
+                self.nnue_state.manual_update::<OFF>(piece, m.from().unwrap());
+                self.nnue_state.manual_update::<ON>(promotion, m.to());
+            }
+            _ => {
+                let piece = Piece {
+                    color: turn,
+                    role: m.role(),
+                };
+
+                self.nnue_state.move_update(piece, m.from().unwrap(), m.to());
+            }
+        }
+
+        pos.play_unchecked(m);
+        self.history.push(pos.zobrist_hash(EnPassantMode::Legal));
+    }
+
     pub fn make_move(&mut self, pos: &mut Chess, m: &Move) {
         pos.play_unchecked(m);
         self.history.push(pos.zobrist_hash(EnPassantMode::Legal));
+    }
+
+    pub fn undo_move_nnue(&mut self) {
+        self.nnue_state.pop();
+        self.history.pop();
     }
 
     pub fn undo_move(&mut self) {
@@ -179,7 +248,7 @@ impl Search {
 
     fn quiesce(&mut self, pos: &Chess, mut alpha: i32, beta: i32, limit: u8) -> i32 {
         self.info.nodes += 1;
-        let stand_pat = self.eval.pesto_eval(pos);
+        let stand_pat = self.eval.nnue_eval(&self.nnue_state, pos);
 
         if limit == 0 { return stand_pat; }
         if stand_pat >= beta { return beta; }
@@ -240,6 +309,7 @@ impl Default for Search {
             time_controller: TimeController::default(),
             history: Vec::new(),
             pv_table: PvTable::default(),
+            nnue_state: *NNUEState::from_board(Chess::default().board()),
             config,
         }
     }
