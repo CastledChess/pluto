@@ -11,7 +11,10 @@ use crate::search::search_params::SearchParams;
 use crate::time_control::time_controller::TimeController;
 use crate::transposition::{TranspositionTable, TranspositionTableEntry};
 use shakmaty::zobrist::{Zobrist64, ZobristHash};
-use shakmaty::{CastlingMode, CastlingSide, Chess, Color, EnPassantMode, Move, MoveList, Piece, Position, Square};
+use shakmaty::{
+    CastlingMode, CastlingSide, Chess, Color, EnPassantMode, Move, MoveList, Piece, Position,
+    Square,
+};
 
 pub struct Search {
     pub game: Chess,
@@ -32,56 +35,68 @@ impl Search {
         self.nnue_state.push();
         let turn = pos.turn();
 
-        match m {
-            m if m.is_en_passant() => {
-                let ep_target = pos.ep_square(EnPassantMode::Legal).unwrap();
-                self.nnue_state.manual_update::<OFF>((!turn).pawn(), ep_target);
-            }
-            m if m.is_capture() => {
-                let capture = m.capture().unwrap();
-                let pcolor = !turn;
+        if m.is_en_passant() {
+            let ep_target = pos.ep_square(EnPassantMode::Legal).unwrap();
+            self.nnue_state
+                .manual_update::<OFF>((!turn).pawn(), ep_target);
+        } else if m.is_capture() {
+            let capture = m.capture().unwrap();
+            let pcolor = !turn;
 
-                let piece = Piece {
-                    color: pcolor,
-                    role: capture,
-                };
+            let piece = Piece {
+                color: pcolor,
+                role: capture,
+            };
 
-                self.nnue_state.manual_update::<OFF>(piece, m.to());
-            }
-            m if m.castling_side().is_some() => {
-                let cas = m.castling_side().unwrap();
-                let rook = turn.rook();
+            self.nnue_state.manual_update::<OFF>(piece, m.to());
+        } else if m.castling_side().is_some() {
+            let cas = m.castling_side().unwrap();
+            let rook = turn.rook();
 
-                let rook_src = match cas {
-                    CastlingSide::KingSide => if turn == Color::White { 7 } else { 63 },
-                    CastlingSide::QueenSide => if turn == Color::White { 0 } else { 56 },
-                    _ => panic!("Invalid castling side"),
-                };
+            let rook_src = match cas {
+                CastlingSide::KingSide => {
+                    if turn == Color::White {
+                        7
+                    } else {
+                        63
+                    }
+                }
+                CastlingSide::QueenSide => {
+                    if turn == Color::White {
+                        0
+                    } else {
+                        56
+                    }
+                }
+                _ => panic!("Invalid castling side"),
+            };
 
-                self.nnue_state.move_update(rook, Square::new(rook_src), cas.rook_to(turn));
-            }
-            m if m.is_promotion() => {
-                let piece = Piece {
-                    color: turn,
-                    role: m.role(),
-                };
+            self.nnue_state
+                .move_update(rook, Square::new(rook_src), cas.rook_to(turn));
+        }
 
-                let promotion = Piece {
-                    color: turn,
-                    role: m.promotion().unwrap(),
-                };
+        if m.is_promotion() {
+            let piece = Piece {
+                color: turn,
+                role: m.role(),
+            };
 
-                self.nnue_state.manual_update::<OFF>(piece, m.from().unwrap());
-                self.nnue_state.manual_update::<ON>(promotion, m.to());
-            }
-            _ => {
-                let piece = Piece {
-                    color: turn,
-                    role: m.role(),
-                };
+            let promotion = Piece {
+                color: turn,
+                role: m.promotion().unwrap(),
+            };
 
-                self.nnue_state.move_update(piece, m.from().unwrap(), m.to());
-            }
+            self.nnue_state
+                .manual_update::<OFF>(piece, m.from().unwrap());
+            self.nnue_state.manual_update::<ON>(promotion, m.to());
+        } else {
+            let piece = Piece {
+                color: turn,
+                role: m.role(),
+            };
+
+            self.nnue_state
+                .move_update(piece, m.from().unwrap(), m.to());
         }
 
         pos.play_unchecked(m);
@@ -115,7 +130,9 @@ impl Search {
             let pos = self.game.clone();
             let iteration_score = self.negamax(&pos, self.info.depth, -100000, 100000, 0);
 
-            if self.time_controller.is_time_up() { break; }
+            if self.time_controller.is_time_up() {
+                break;
+            }
 
             best_move = self.pv_table.get_best_move();
 
@@ -144,7 +161,9 @@ impl Search {
             return 0;
         }
 
-        if depth == 0 { return self.quiesce(pos, alpha, beta, self.config.qsearch_depth); }
+        if depth == 0 {
+            return self.quiesce(pos, alpha, beta, self.config.qsearch_depth);
+        }
 
         let is_root = ply == 0;
         let position_key = pos.zobrist_hash::<Zobrist64>(EnPassantMode::Legal);
@@ -156,8 +175,8 @@ impl Search {
             && !is_root
             && entry.depth >= depth
             && (entry.bound == Bound::Exact
-            || (entry.bound == Bound::Alpha && entry.score <= alpha)
-            || (entry.bound == Bound::Beta && entry.score >= beta))
+                || (entry.bound == Bound::Alpha && entry.score <= alpha)
+                || (entry.bound == Bound::Beta && entry.score >= beta))
         {
             self.info.nodes += 1;
             return entry.score;
@@ -200,7 +219,7 @@ impl Search {
         for i in 0..ordered_moves.len() {
             let m = &ordered_moves[i];
             let mut pos = pos.clone();
-            self.make_move(&mut pos, m);
+            self.make_move_nnue(&mut pos, m);
 
             let mut score: i32;
 
@@ -216,20 +235,24 @@ impl Search {
                 }
             }
 
-            self.undo_move();
+            self.undo_move_nnue();
 
             if score > best_score {
                 best_score = score;
                 best_move = m;
 
-                if is_root { self.iteration_move = best_move.clone(); }
+                if is_root {
+                    self.iteration_move = best_move.clone();
+                }
                 if best_score > alpha {
                     // Stocking PV search Line
                     self.pv_table.store(ply, best_move.clone());
 
                     alpha = best_score
                 }
-                if alpha >= beta { break; }
+                if alpha >= beta {
+                    break;
+                }
             }
         }
 
@@ -250,20 +273,30 @@ impl Search {
         self.info.nodes += 1;
         let stand_pat = self.eval.nnue_eval(&self.nnue_state, pos);
 
-        if limit == 0 { return stand_pat; }
-        if stand_pat >= beta { return beta; }
-        if alpha < stand_pat { alpha = stand_pat; }
+        if limit == 0 {
+            return stand_pat;
+        }
+        if stand_pat >= beta {
+            return beta;
+        }
+        if alpha < stand_pat {
+            alpha = stand_pat;
+        }
 
         let moves = pos.capture_moves();
 
         for m in moves {
             let mut pos = pos.clone();
-            self.make_move(&mut pos, &m);
+            self.make_move_nnue(&mut pos, &m);
             let score = -self.quiesce(&pos, -beta, -alpha, limit - 1);
-            self.undo_move();
+            self.undo_move_nnue();
 
-            if score >= beta { return beta; }
-            if score > alpha { alpha = score; }
+            if score >= beta {
+                return beta;
+            }
+            if score > alpha {
+                alpha = score;
+            }
         }
 
         alpha
