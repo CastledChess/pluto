@@ -25,6 +25,8 @@ fn main() {
 
         io::stdin().read_line(&mut input).ok().unwrap();
 
+        println!("{}", input);
+
         uci.parse_command(&input);
     }
 }
