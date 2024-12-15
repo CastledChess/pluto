@@ -15,7 +15,6 @@ pub struct Config {
     pub tt_size: usize,
     pub mo_tt_entry_value: i32,
     pub mo_capture_value: i32,
-    pub is_training: bool,
 }
 
 impl Config {

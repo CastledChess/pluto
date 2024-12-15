@@ -1,6 +1,7 @@
 use crate::nnue::NNUEState;
 use shakmaty::{Chess, Color, Position};
 
+#[allow(dead_code)]
 pub struct Eval {
     w_square_tables: [[i32; 64]; 6],
     b_square_tables: [[i32; 64]; 6],
@@ -57,6 +58,7 @@ impl Eval {
 }
 
 impl Eval {
+    #[allow(dead_code)]
     pub fn simple_eval(&mut self, pos: &Chess) -> i32 {
         let mut eval = 0;
         let board = pos.board().clone();
@@ -72,6 +74,7 @@ impl Eval {
         eval * if turn == Color::White { 1 } else { -1 }
     }
 
+    #[allow(dead_code)]
     pub fn pesto_eval(&mut self, pos: &Chess) -> i32 {
         let mut mg_eval = 0;
         let mut eg_eval = 0;
