@@ -12,8 +12,7 @@ use crate::time_control::time_controller::TimeController;
 use crate::transposition::{TranspositionTable, TranspositionTableEntry};
 use shakmaty::zobrist::{Zobrist64, ZobristHash};
 use shakmaty::{
-    CastlingMode, CastlingSide, Chess, Color, EnPassantMode, Move, MoveList, Piece, Position,
-    Square,
+    CastlingMode, CastlingSide, Chess, EnPassantMode, Move, MoveList, Piece, Position, Square,
 };
 
 pub struct Search {
@@ -54,7 +53,7 @@ impl Search {
             Move::Normal {
                 role,
                 from,
-                capture,
+                capture: _capture,
                 to,
                 promotion,
             } => {
@@ -90,6 +89,8 @@ impl Search {
         pos.play_unchecked(m);
         self.history.push(pos.zobrist_hash(EnPassantMode::Legal));
     }
+
+    #[allow(dead_code)]
     pub fn make_move(&mut self, pos: &mut Chess, m: &Move) {
         pos.play_unchecked(m);
         self.history.push(pos.zobrist_hash(EnPassantMode::Legal));
@@ -101,6 +102,7 @@ impl Search {
         self.history.pop();
     }
 
+    #[allow(dead_code)]
     pub fn undo_move(&mut self) {
         self.history.pop();
     }

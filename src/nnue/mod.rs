@@ -155,9 +155,9 @@ impl NNUEState {
 
         // update the first accumulator
         for sq in board.occupied().into_iter() {
-            if let piece = board.piece_at(sq).unwrap() {
-                self.manual_update::<ON>(piece, sq);
-            }
+            let piece = board.piece_at(sq).unwrap();
+
+            self.manual_update::<ON>(piece, sq);
         }
     }
 
@@ -209,20 +209,7 @@ impl NNUEState {
         (out / QA + MODEL.output_bias as i32) * SCALE / QAB
     }
 }
-pub enum Test {
-    WP,
-    BP,
-    WN,
-    BN,
-    WB,
-    BB,
-    WR,
-    BR,
-    WQ,
-    BQ,
-    WK,
-    BK,
-}
+
 /// Returns white and black feature weight index for given feature
 fn nnue_index(piece: Piece, sq: Square) -> (usize, usize) {
     const COLOR_STRIDE: usize = 64 * 6;
