@@ -1,11 +1,11 @@
+/**
+ * Thanks to this article from the stockfish nnue authors https://github.com/official-stockfish/nnue-pytorch/blob/master/docs/nnue.md
+ * And Carp for this nnue implementation https://github.com/dede1751/carp
+ *
+ * This implementation is a "frankenstein" of carp's NNUE
+*/
 use shakmaty::{Board, Color, Piece, Square};
-/// NNUE Implementation
-/// Carp uses a (768->1024)x2->1 perspective net architecture, fully trained on self play data.
-/// Network is initialized at compile time from the 'net.bin' file in thie bins directory.
-/// A new net can be loaded by running the convert_json.py script in the scripts folder.
-///
-/// Huge thanks to Cosmo, author of Viridithas, for the help. The code here is heavily inspired by
-/// his engine.
+
 use std::alloc;
 use std::mem;
 use std::ops::{Deref, DerefMut};
@@ -206,7 +206,7 @@ impl NNUEState {
             out += squared_crelu(value) * (weight as i32);
         }
 
-        ((out / QA + MODEL.output_bias as i32) * SCALE / QAB) as i32
+        (out / QA + MODEL.output_bias as i32) * SCALE / QAB
     }
 }
 pub enum Test {
@@ -321,7 +321,11 @@ mod tests {
 
         let mut s2 = NNUEState::from_board(&b2);
 
-        s1.move_update(b11.piece_at(m2.from().unwrap()).unwrap(), m2.from().unwrap(), m2.to());
+        s1.move_update(
+            b11.piece_at(m2.from().unwrap()).unwrap(),
+            m2.from().unwrap(),
+            m2.to(),
+        );
 
         for i in 0..HIDDEN {
             assert_eq!(

@@ -1,9 +1,10 @@
+use crate::nnue::NNUEState;
+use crate::search::search::Search;
+use crate::time_control::time_mode::TimeMode;
 use queues::{queue, IsQueue, Queue};
 use shakmaty::fen::Fen;
 use shakmaty::uci::UciMove;
 use shakmaty::{CastlingMode, Chess, Position};
-use crate::search::search::Search;
-use crate::time_control::time_mode::TimeMode;
 
 #[allow(dead_code)]
 enum UciOptionType {
@@ -159,6 +160,8 @@ impl Uci {
                 self.search.game = game.play(&legal).unwrap();
             }
         }
+
+        self.search.nnue_state = *NNUEState::from_board(&self.search.game.board());
     }
 
     fn handle_position_fen(&mut self, tokens: &mut Queue<&str>) {
@@ -192,6 +195,8 @@ impl Uci {
                 self.search.game = game.play(&legal).unwrap();
             }
         }
+
+        self.search.nnue_state = *NNUEState::from_board(&self.search.game.board());
     }
 
     fn handle_setoption(&self, tokens: &mut Queue<&str>) {
