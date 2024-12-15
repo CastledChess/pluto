@@ -2,15 +2,15 @@ use crate::uci::Uci;
 use std::io;
 
 mod bound;
+mod config;
 mod eval;
 mod moves;
-mod transposition;
-mod uci;
+mod nnue;
+mod principal_variation;
 mod search;
 mod time_control;
-mod config;
-mod principal_variation;
-mod nnue;
+mod transposition;
+mod uci;
 
 fn main() {
     println!("id name CastledEngine");
@@ -24,8 +24,6 @@ fn main() {
         input.clear();
 
         io::stdin().read_line(&mut input).ok().unwrap();
-
-        println!("{}", input);
 
         uci.parse_command(&input);
     }

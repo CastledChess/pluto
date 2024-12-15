@@ -21,91 +21,79 @@ pub struct Search {
     pub params: SearchParams,
     pub info: SearchInfo,
     pub time_controller: TimeController,
+    pub nnue_state: NNUEState,
     eval: Eval,
     iteration_move: Move,
     transposition_table: TranspositionTable,
     history: Vec<Zobrist64>,
     config: Config,
     pv_table: PvTable,
-    nnue_state: NNUEState,
 }
 
 impl Search {
     pub fn make_move_nnue(&mut self, pos: &mut Chess, m: &Move) {
         self.nnue_state.push();
         let turn = pos.turn();
+        let board = pos.board();
 
-        if m.is_en_passant() {
-            let ep_target = pos.ep_square(EnPassantMode::Legal).unwrap();
-            self.nnue_state
-                .manual_update::<OFF>((!turn).pawn(), ep_target);
-        } else if m.is_capture() {
-            let capture = m.capture().unwrap();
-            let pcolor = !turn;
+        match m {
+            Move::EnPassant { from, to } => {
+                let ep_target = Square::from_coords(to.file(), from.rank()); // captured pawn
 
-            let piece = Piece {
-                color: pcolor,
-                role: capture,
-            };
+                self.nnue_state
+                    .manual_update::<OFF>((!pos.turn()).pawn(), ep_target);
+            }
 
-            self.nnue_state.manual_update::<OFF>(piece, m.to());
-        } else if m.castling_side().is_some() {
-            let cas = m.castling_side().unwrap();
-            let rook = turn.rook();
+            Move::Castle { king, rook } => {
+                let side = CastlingSide::from_queen_side(rook < king);
+                let rook_target = Square::from_coords(side.rook_to_file(), rook.rank());
 
-            let rook_src = match cas {
-                CastlingSide::KingSide => {
-                    if turn == Color::White {
-                        7
-                    } else {
-                        63
-                    }
+                self.nnue_state.move_update(turn.rook(), *rook, rook_target);
+            }
+
+            Move::Normal {
+                role,
+                from,
+                capture,
+                to,
+                promotion,
+            } => {
+                if m.is_capture() {
+                    let target_piece = board.piece_at(*to).unwrap();
+                    let target_square = *to;
+
+                    self.nnue_state
+                        .manual_update::<OFF>(target_piece, target_square);
                 }
-                CastlingSide::QueenSide => {
-                    if turn == Color::White {
-                        0
-                    } else {
-                        56
-                    }
+
+                let piece = Piece {
+                    color: turn,
+                    role: *role,
+                };
+
+                if m.is_promotion() {
+                    let promoted_piece = Piece {
+                        color: turn,
+                        role: promotion.unwrap(),
+                    };
+
+                    self.nnue_state.manual_update::<OFF>(piece, *from);
+                    self.nnue_state.manual_update::<ON>(promoted_piece, *to);
+                } else {
+                    self.nnue_state.move_update(piece, *from, *to);
                 }
-                _ => panic!("Invalid castling side"),
-            };
+            }
 
-            self.nnue_state
-                .move_update(rook, Square::new(rook_src), cas.rook_to(turn));
-        }
-
-        if m.is_promotion() {
-            let piece = Piece {
-                color: turn,
-                role: m.role(),
-            };
-
-            let promotion = Piece {
-                color: turn,
-                role: m.promotion().unwrap(),
-            };
-
-            self.nnue_state
-                .manual_update::<OFF>(piece, m.from().unwrap());
-            self.nnue_state.manual_update::<ON>(promotion, m.to());
-        } else {
-            let piece = Piece {
-                color: turn,
-                role: m.role(),
-            };
-
-            self.nnue_state
-                .move_update(piece, m.from().unwrap(), m.to());
+            _ => {}
         }
 
         pos.play_unchecked(m);
         self.history.push(pos.zobrist_hash(EnPassantMode::Legal));
     }
-
     pub fn make_move(&mut self, pos: &mut Chess, m: &Move) {
         pos.play_unchecked(m);
         self.history.push(pos.zobrist_hash(EnPassantMode::Legal));
+        self.nnue_state.refresh(pos.board());
     }
 
     pub fn undo_move_nnue(&mut self) {
@@ -183,7 +171,7 @@ impl Search {
         }
 
         let is_pv = beta - alpha != 1;
-        let static_eval = self.eval.simple_eval(pos);
+        let static_eval = self.eval.nnue_eval(&self.nnue_state, pos);
 
         /* Reverse Futility Pruning */
         if !is_pv && depth <= self.config.rfp_depth && !pos.is_check() {

@@ -105,11 +105,10 @@ impl Eval {
         let trun = pos.turn();
         let eval = state.evaluate(trun);
 
-        let total_material =
-            board.knights().count() as i32 * self.nnue_piece_values[1] +
-                board.bishops().count() as i32 * self.nnue_piece_values[2] +
-                board.rooks().count() as i32 * self.nnue_piece_values[3] +
-                board.queens().count() as i32 * self.nnue_piece_values[4];
+        let total_material = board.knights().count() as i32 * self.nnue_piece_values[1]
+            + board.bishops().count() as i32 * self.nnue_piece_values[2]
+            + board.rooks().count() as i32 * self.nnue_piece_values[3]
+            + board.queens().count() as i32 * self.nnue_piece_values[4];
 
         (eval * (700 + total_material / 32)) / 1024
     }
@@ -179,7 +178,6 @@ static EG_PIECE_SQUARE_TABLES: [[i32; 64]; 6] = [
     ],
 ];
 
-
 #[rustfmt::skip]
 static MG_PIECE_SQUARE_TABLES: [[i32; 64]; 6] = [
     [
@@ -243,7 +241,6 @@ static MG_PIECE_SQUARE_TABLES: [[i32; 64]; 6] = [
         -15,  36,  12, -54,   8, -28,  24,  14,
     ],
 ];
-
 
 #[rustfmt::skip]
 static PIECE_SQUARE_TABLES: [[i32; 64]; 6] = [
