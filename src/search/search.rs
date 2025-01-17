@@ -15,6 +15,7 @@ use shakmaty::{
     CastlingMode, CastlingSide, Chess, EnPassantMode, Move, MoveList, Piece, Position, Square,
 };
 
+
 pub struct Search {
     pub game: Chess,
     pub params: SearchParams,
@@ -27,7 +28,9 @@ pub struct Search {
     history: Vec<Zobrist64>,
     config: Config,
     pv_table: PvTable,
+    killer_moves: Vec<Vec<Option<Move>>>,
 }
+
 
 impl Search {
     pub fn make_move_nnue(&mut self, pos: &mut Chess, m: &Move) {
@@ -203,7 +206,7 @@ impl Search {
 
         let start_alpha = alpha;
         let mut best_score = -100000;
-        let ordered_moves = self.order_moves(entry, moves);
+        let ordered_moves = self.order_moves(entry, ply, moves);
         let mut best_move = &ordered_moves[0];
 
         for i in 0..ordered_moves.len() {
@@ -237,11 +240,14 @@ impl Search {
                 if best_score > alpha {
                     // Stocking PV search Line
                     self.pv_table.store(ply, best_move.clone());
+                    alpha = best_score;
 
-                    alpha = best_score
-                }
-                if alpha >= beta {
-                    break;
+                    if alpha >= beta {
+                        if ply < self.params.MAX_DEPTH {
+                            self.add_killer_move(ply, m.clone());
+                        }
+                        break;
+                    }
                 }
             }
         }
@@ -292,7 +298,7 @@ impl Search {
         alpha
     }
 
-    fn move_importance(&self, entry: &TranspositionTableEntry, m: &Move) -> i32 {
+    fn move_importance(&self, entry: &TranspositionTableEntry,  ply: usize, m: &Move) -> i32 {
         match m {
             m if m == &entry._move => self.config.mo_tt_entry_value,
             m if m.is_capture() => {
@@ -301,39 +307,50 @@ impl Search {
 
                 self.config.mo_capture_value * capture_value - piece_value
             }
+            m if self.killer_moves[ply].contains(&Some(m.clone())) => self.config.mo_killer_move_value,
             m if m.is_promotion() => m.promotion().unwrap() as i32,
             _ => 0,
         }
     }
 
-    fn order_moves(&self, entry: TranspositionTableEntry, mut moves: MoveList) -> MoveList {
+    fn order_moves(&self, entry: TranspositionTableEntry, ply: usize,  mut moves: MoveList) -> MoveList {
         moves.sort_by(|a, b| {
-            let a_score = self.move_importance(&entry, &a);
-            let b_score = self.move_importance(&entry, &b);
+            let a_score = self.move_importance(&entry, ply, &a);
+            let b_score = self.move_importance(&entry, ply, &b);
 
             b_score.cmp(&a_score)
         });
 
         moves
     }
+    fn add_killer_move(&mut self, ply: usize, m: Move) {
+        if ply < self.params.MAX_DEPTH {
+            let killers = &mut self.killer_moves[ply];
+            if !killers.contains(&Some(m.clone())) {
+                killers.pop();
+                killers.insert(0, Some(m));
+            }
+        }
+    }
 }
 
 impl Default for Search {
     fn default() -> Self {
         let config = Config::load().unwrap();
-
+        let params = SearchParams::default();
         Search {
             game: Chess::default(),
             eval: Eval::default(),
             iteration_move: DEFAULT_MOVE.clone(),
             transposition_table: TranspositionTable::new(config.tt_size),
-            params: SearchParams::default(),
+            params,
             info: SearchInfo::default(),
             time_controller: TimeController::default(),
             history: Vec::new(),
             pv_table: PvTable::default(),
             nnue_state: *NNUEState::from_board(Chess::default().board()),
             config,
+            killer_moves: vec![vec![None; params.NUM_KILLERS]; params.MAX_DEPTH],
         }
     }
 }
