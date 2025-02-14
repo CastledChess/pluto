@@ -3,8 +3,8 @@ pub struct SearchParams {
     pub move_time: u128,
     pub w_time: u128,
     pub b_time: u128,
-    pub MAX_DEPTH: usize,
-    pub NUM_KILLERS: usize,
+    pub max_depth: usize,
+    pub num_killers: usize,
 }
 
 impl Default for SearchParams {
@@ -14,8 +14,8 @@ impl Default for SearchParams {
             move_time: 0,
             w_time: 0,
             b_time: 0,
-            MAX_DEPTH: 64,
-            NUM_KILLERS: 2,
+            max_depth: 64,
+            num_killers: 2,
         }
     }
 }

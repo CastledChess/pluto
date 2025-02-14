@@ -243,7 +243,7 @@ impl Search {
                     alpha = best_score;
 
                     if alpha >= beta {
-                        if ply < self.params.MAX_DEPTH {
+                        if ply < self.params.max_depth {
                             self.add_killer_move(ply, m.clone());
                         }
                         break;
@@ -324,7 +324,7 @@ impl Search {
         moves
     }
     fn add_killer_move(&mut self, ply: usize, m: Move) {
-        if ply < self.params.MAX_DEPTH {
+        if ply < self.params.max_depth {
             let killers = &mut self.killer_moves[ply];
             if !killers.contains(&Some(m.clone())) {
                 killers.pop();
@@ -338,6 +338,7 @@ impl Default for Search {
     fn default() -> Self {
         let config = Config::load().unwrap();
         let params = SearchParams::default();
+        let killer_moves = vec![vec![None; params.num_killers]; params.max_depth];
         Search {
             game: Chess::default(),
             eval: Eval::default(),
@@ -350,7 +351,7 @@ impl Default for Search {
             pv_table: PvTable::default(),
             nnue_state: *NNUEState::from_board(Chess::default().board()),
             config,
-            killer_moves: vec![vec![None; params.NUM_KILLERS]; params.MAX_DEPTH],
+            killer_moves,
         }
     }
 }
