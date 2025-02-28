@@ -16,6 +16,8 @@ pub struct Config {
     pub mo_tt_entry_value: i32,
     pub mo_capture_value: i32,
     pub mo_killer_move_value: i32,
+    pub nb_killer_moves: usize,
+    pub max_depth_killer_moves: usize,
 }
 
 impl Config {

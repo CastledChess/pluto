@@ -338,7 +338,7 @@ impl Default for Search {
     fn default() -> Self {
         let config = Config::load().unwrap();
         let params = SearchParams::default();
-        let killer_moves = vec![vec![None; params.num_killers]; params.max_depth];
+        let killer_moves = vec![vec![None; config.nb_killer_moves]; config.max_depth_killer_moves];
         Search {
             game: Chess::default(),
             eval: Eval::default(),
