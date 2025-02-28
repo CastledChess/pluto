@@ -243,7 +243,7 @@ impl Search {
                     alpha = best_score;
 
                     if alpha >= beta {
-                        if ply < self.params.max_depth {
+                        if ply < self.config.max_depth_killer_moves {
                             self.add_killer_move(ply, m.clone());
                         }
                         break;
@@ -324,7 +324,7 @@ impl Search {
         moves
     }
     fn add_killer_move(&mut self, ply: usize, m: Move) {
-        if ply < self.params.max_depth {
+        if ply < self.config.max_depth_killer_moves {
             let killers = &mut self.killer_moves[ply];
             if !killers.contains(&Some(m.clone())) {
                 killers.pop();
