@@ -1,6 +1,9 @@
+
 # Castled Engine
 
 by [Castled Org](https://github.com/CastledChess)
+
+---
 
 ## Table of Contents
 
@@ -10,47 +13,63 @@ by [Castled Org](https://github.com/CastledChess)
 - [Usage](#usage)
 - [Documentation](#documentation)
 
+---
+
 ## About
 
-Castled Engine is a UCI compatible chess engine written in Rust using the
-[shakmaty chess library](https://github.com/niklasf/shakmaty). It was
-designed to analyse games for the Castled Chess Project.
+**Castled Engine** is a UCI-compatible chess engine written in **Rust**, leveraging the [Shakmaty Chess Library](https://github.com/niklasf/shakmaty). It was primarily designed for analyzing chess games as part of the **Castled Chess Project**.
+
+---
 
 ## Features
 
-- UCI compatible
-- Search
-    - Negamax
-    - Alpha-Beta Pruning
-    - Iterative Deepening
-    - Transposition Tables
-    - Move Ordering
-    - Principal Variation Search
-    - Reverse Futility Pruning
-    - Quiescence Search
-    - Draw & Checkmate Detection
-- Evaluation
-    - Pesto Evaluation
-- Move Generation using [shakmaty](https://github.com/niklasf/shakmaty)
+### Core Features
+
+- UCI Compatibility
+- Move Generation powered by [Shakmaty](https://github.com/niklasf/shakmaty)
+
+### Search Techniques
+
+- **Negamax**
+- **Alpha-Beta Pruning**
+- **Iterative Deepening**
+- **Transposition Tables**
+- **Move Ordering**
+- **Principal Variation Search**
+- **Reverse Futility Pruning**
+- **Quiescence Search**
+- **Draw & Checkmate Detection**
+
+### Evaluation
+
+- **Pesto Evaluation**
+
+---
 
 ## Building
 
-To install the engine, clone the repository and run the following command:
+To build the engine, clone the repository and run the following command in your terminal:
 
 ```bash
 cargo build --release
 ```
 
+This will compile the engine in release mode for optimal performance.
+
+---
+
 ## Usage
 
-The engine uses the [Uci protocol](http://wbec-ridderkerk.nl/html/UCIProtocol.html), to communicate with the engine, you
-can use any UCI compatible GUI. Alternatively, you can run the engine in the
-terminal using the following command:
+Castled Engine communicates using the [UCI protocol](http://wbec-ridderkerk.nl/html/UCIProtocol.html), so it can be used with any UCI-compatible GUI. Alternatively, you can run the engine directly in the terminal by executing:
 
 ```bash
 cargo run --release
 ```
 
+This will start the engine and you can interact with it through the terminal.
+
+---
+
 ## Documentation
 
-The documentation for the engine can be found [here](./docs/README.md).
+Comprehensive documentation for Castled Engine can be found [here](./docs/README.md).
