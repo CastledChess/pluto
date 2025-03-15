@@ -1,4 +1,4 @@
-use std::time::SystemTime;
+use chrono::Local;
 use shakmaty::{Chess, Color, Position};
 use crate::search::search_params::SearchParams;
 use crate::time_control::time_mode::TimeMode;
@@ -9,7 +9,7 @@ pub struct TimeController {
     /// Current time control mode (e.g., Infinite, MoveTime, WOrBTime)
     pub time_mode: TimeMode,
     /// Timestamp when search started
-    start_time: SystemTime,
+    start_time: i64,
     /// Allocated time for current search in milliseconds
     play_time: u128,
 }
@@ -17,7 +17,7 @@ pub struct TimeController {
 impl TimeController {
     /// Starts the time control by setting the start time to current system time.
     pub fn start(&mut self) {
-        self.start_time = SystemTime::now();
+        self.start_time = Local::now().timestamp_millis();
     }
 
     /// Configures time control based on search parameters and game state.
@@ -39,9 +39,8 @@ impl TimeController {
     }
 
     /// Returns elapsed time since search start in milliseconds.
-    pub fn elapsed(&self) -> u128 {
-        let duration = SystemTime::now().duration_since(self.start_time);
-        duration.unwrap().as_millis()
+    pub fn elapsed(&self) -> i64 {
+        Local::now().timestamp_millis() - self.start_time
     }
 
     /// Checks if allocated time for current search has been exhausted.
@@ -53,10 +52,9 @@ impl TimeController {
             return false;
         }
 
-        let duration = SystemTime::now().duration_since(self.start_time);
-        let elapsed = duration.unwrap().as_millis();
+        let elapsed = Local::now().timestamp_millis() - self.start_time;
 
-        elapsed > self.play_time
+        elapsed as u128 > self.play_time
     }
 }
 
@@ -64,7 +62,7 @@ impl TimeController {
 impl Default for TimeController {
     fn default() -> Self {
         TimeController {
-            start_time: SystemTime::now(),
+            start_time: Local::now().timestamp_millis(),
             time_mode: TimeMode::Infinite,
             play_time: 0,
         }

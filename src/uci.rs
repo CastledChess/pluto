@@ -8,6 +8,13 @@ use queues::{queue, IsQueue, Queue};
 use shakmaty::fen::Fen;
 use shakmaty::uci::UciMove;
 use shakmaty::{CastlingMode, Chess, Position};
+use wasm_bindgen::prelude::wasm_bindgen;
+use crate::{postMessage};
+
+pub enum UciMode {
+    Native,
+    Web,
+}
 
 /// UCI option types supported by the engine.
 #[allow(dead_code)]
@@ -40,6 +47,7 @@ struct UciOption {
 
 /// Main UCI protocol handler implementing the Universal Chess Interface.
 pub struct Uci {
+    pub mode: UciMode,
     /// Search engine instance for position evaluation
     pub search: Search,
     /// Available configuration options for the engine
@@ -50,6 +58,7 @@ impl Default for Uci {
     /// Creates a new UCI instance with default settings.
     fn default() -> Uci {
         Uci {
+            mode: UciMode::Native,
             search: Search::default(),
             options: vec![],
         }
@@ -57,6 +66,22 @@ impl Default for Uci {
 }
 
 impl Uci {
+    /// Creates a new UCI instance for web-based GUIs.
+    pub fn web() -> Uci {
+        Uci {
+            mode: UciMode::Web,
+            search: Search::web(),
+            options: vec![],
+        }
+    }
+
+    fn log(&self, message: &str) {
+        match self.mode {
+            UciMode::Native => println!("{}", message),
+            UciMode::Web => postMessage(message),
+        }
+    }
+
     /// Parses a UCI command string and processes it.
     ///
     /// # Arguments
@@ -87,7 +112,7 @@ impl Uci {
             "ucinewgame" => self.handle_ucinewgame(),
             "position" => self.handle_position(tokens),
             "go" => self.handle_go(tokens),
-            _ => println!("Unknown command: {}", first_token),
+            _ => self.log(&format!("Unknown command: {}", first_token)),
         }
     }
 
@@ -105,10 +130,10 @@ impl Uci {
                 "depth" => self.handle_go_depth(tokens),
                 "movetime" => self.handle_go_movetime(tokens),
                 "infinite" => self.handle_go_infinite(tokens),
-                _ => println!("Unknown go command: {}", token.unwrap()),
+                _ => self.log(&format!("Unknown go command: {}", token.unwrap())),
             },
             false => {
-                self.search.go();
+                self.search.go(&self.mode);
             }
         }
     }
@@ -184,7 +209,7 @@ impl Uci {
                 self.handle_position_startpos(tokens);
             }
             "fen" => self.handle_position_fen(tokens),
-            _ => println!("Unknown position command: {}", token),
+            _ => self.log(&format!("Unknown position command: {}", token)),
         }
     }
 
@@ -265,8 +290,8 @@ impl Uci {
         }
 
         match name {
-            "MoveOverhead" => println!("info string set move overhead"),
-            _ => println!("info string unknown option: {}", name),
+            "MoveOverhead" => self.log(&format!("info string set move overhead")),
+            _ => self.log(&format!("info string unknown option: {}", name)),
         }
     }
 
@@ -288,7 +313,7 @@ impl Uci {
 
     /// Responds to isready command.
     fn handle_isready(&self) {
-        println!("readyok");
+        self.log(&format!("readyok"));
     }
 
     /// Handles quit command by exiting the program.
@@ -298,8 +323,8 @@ impl Uci {
 
     /// Sends engine identification and available options.
     fn handle_uci(&self) {
-        println!("id name CastledEngine");
-        println!("id author CastledChess");
+        self.log(&format!("id name CastledEngine"));
+        self.log(&format!("id author CastledChess"));
 
         for option in &self.options {
             let type_str = match option.option_type {
@@ -310,10 +335,10 @@ impl Uci {
                 UciOptionType::String => "string",
             };
 
-            println!(
+            self.log(&format!(
                 "option name {} type {} default {} min {} max {}",
                 option.name, type_str, option.default, option.min, option.max
-            );
+            ));
         }
     }
 }

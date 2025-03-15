@@ -14,6 +14,8 @@ use shakmaty::zobrist::{Zobrist64, ZobristHash};
 use shakmaty::{
     CastlingMode, CastlingSide, Chess, EnPassantMode, Move, MoveList, Piece, Position, Square,
 };
+use crate::{postMessage};
+use crate::uci::UciMode;
 
 /// A structure responsible for managing the chess game search process.
 /// It contains all necessary components for search execution including game state,
@@ -41,9 +43,16 @@ pub struct Search {
     config: Config,
     /// Principal Variation table for storing best lines
     pv_table: PvTable,
+    pub mode: UciMode,
 }
 
 impl Search {
+    fn log(&self, message: &str) {
+        match self.mode {
+            UciMode::Native => println!("{}", message),
+            UciMode::Web => postMessage(message),
+        }
+    }
     /// Makes a move on the board while updating NNUE (Neural Network) accumulator states.
     /// This method should be used instead of regular make_move when NNUE evaluation is active.
     ///
@@ -139,7 +148,7 @@ impl Search {
 
     /// Starts the search process using iterative deepening.
     /// Prints search information and best move when complete.
-    pub fn go(&mut self) {
+    pub fn go(&mut self, mode: &UciMode) {
         self.time_controller.setup(&self.params, &self.game);
         self.info.nodes = 0;
         self.transposition_table.new_search();
@@ -161,18 +170,18 @@ impl Search {
             let elapsed = self.time_controller.elapsed();
             let pv = self.pv_table.collect();
 
-            println!(
+            self.log(&format!(
                 "info depth {} nodes {} nps {} score cp {} time {} pv {}",
                 self.info.depth,
                 self.info.nodes,
-                self.info.nodes as u128 * 1000 / (elapsed + 1),
+                self.info.nodes as u128 * 1000 / (elapsed + 1) as u128,
                 iteration_score,
                 elapsed,
                 pv.join(" ")
-            );
+            ));
         }
 
-        println!("bestmove {}", best_move.to_uci(CastlingMode::Standard));
+        self.log(&format!("bestmove {}", best_move.to_uci(CastlingMode::Standard)));
     }
 
     /// Performs negamax search with alpha-beta pruning and various optimizations.
@@ -385,6 +394,26 @@ impl Search {
 
         moves
     }
+
+
+    pub fn web() -> Self {
+        let config = Config::load().unwrap();
+
+        Search {
+            mode: UciMode::Web,
+            game: Chess::default(),
+            eval: Eval::default(),
+            iteration_move: DEFAULT_MOVE.clone(),
+            transposition_table: TranspositionTable::new(config.tt_size),
+            params: SearchParams::default(),
+            info: SearchInfo::default(),
+            time_controller: TimeController::default(),
+            history: Vec::new(),
+            pv_table: PvTable::default(),
+            nnue_state: *NNUEState::from_board(Chess::default().board()),
+            config,
+        }
+    }
 }
 
 /// Implements default initialization for Search struct
@@ -393,6 +422,7 @@ impl Default for Search {
         let config = Config::load().unwrap();
 
         Search {
+            mode: UciMode::Native,
             game: Chess::default(),
             eval: Eval::default(),
             iteration_move: DEFAULT_MOVE.clone(),
