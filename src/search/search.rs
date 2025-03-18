@@ -1,3 +1,4 @@
+use std::cmp::{min};
 use crate::bound::Bound;
 use crate::config::Config;
 use crate::eval::Eval;
@@ -148,7 +149,7 @@ impl Search {
 
     /// Starts the search process using iterative deepening.
     /// Prints search information and best move when complete.
-    pub fn go(&mut self, mode: &UciMode) {
+    pub fn go(&mut self) {
         self.time_controller.setup(&self.params, &self.game);
         self.info.nodes = 0;
         self.transposition_table.new_search();
@@ -269,10 +270,19 @@ impl Search {
             match i {
                 0 => score = -self.negamax(&pos, depth - 1, -beta, -alpha, ply + 1),
                 _ => {
-                    score = -self.negamax(&pos, depth - 1, -alpha - 1, -alpha, ply + 1);
+                    if depth >= 2 && i >= 2 && !pos.is_check() {
+                        let r = min(depth,1 + (i as u8 / 3));
+                        // println!("r: {} d {}", r, depth);
+                        score = -self.negamax(&pos, depth - r, -alpha - 1, -alpha, ply + 1);
+                    }
+                    else { score = alpha + 1 };
 
-                    if score > alpha && beta - alpha > 1 {
-                        score = -self.negamax(&pos, depth - 1, -beta, -alpha, ply + 1);
+                    if score > alpha {
+                        score = -self.negamax(&pos, depth - 1, -alpha - 1, -alpha, ply + 1);
+
+                        if score > alpha && beta > score {
+                            score = -self.negamax(&pos, depth - 1, -beta, -alpha, ply + 1);
+                        }
                     }
                 }
             }
