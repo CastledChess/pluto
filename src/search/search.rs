@@ -239,7 +239,7 @@ impl Search {
         /* Threefold Repetition Detection */
         if self.history.iter().filter(|&x| x == &position_key).count() >= 2 {
             self.info.nodes += 1;
-            return 0;
+            return -100;
         }
 
         let moves = pos.legal_moves();
@@ -255,7 +255,7 @@ impl Search {
 
         if pos.is_stalemate() | pos.is_insufficient_material() {
             self.info.nodes += 1;
-            return 50;
+            return -100;
         }
 
         let start_alpha = alpha;
