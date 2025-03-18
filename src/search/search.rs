@@ -253,6 +253,11 @@ impl Search {
             };
         }
 
+        if pos.is_stalemate() | pos.is_insufficient_material() {
+            self.info.nodes += 1;
+            return 50;
+        }
+
         let start_alpha = alpha;
         let mut best_score = -100000;
         let ordered_moves = self.order_moves(entry, moves);
