@@ -271,8 +271,8 @@ impl Search {
             match i {
                 0 => score = -self.negamax(&pos, depth - 1, -beta, -alpha, ply + 1),
                 _ => {
-                    if depth >= 2 && i >= 2 && !pos.is_check() {
-                        let r = min(depth,1 + (i as u8 / 3));
+                    if depth >= 3 && i >= 3 && !pos.is_check() {
+                        let r = min(depth,1 + (i as u8 / 6));
                         // println!("r: {} d {}", r, depth);
                         score = -self.negamax(&pos, depth - r, -alpha - 1, -alpha, ply + 1);
                     }
