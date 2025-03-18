@@ -148,7 +148,7 @@ impl Search {
 
     /// Starts the search process using iterative deepening.
     /// Prints search information and best move when complete.
-    pub fn go(&mut self, mode: &UciMode) {
+    pub fn go(&mut self) {
         self.time_controller.setup(&self.params, &self.game);
         self.info.nodes = 0;
         self.transposition_table.new_search();
@@ -195,7 +195,7 @@ impl Search {
     ///
     /// # Returns
     /// * Score of the position from the perspective of the side to move
-    fn negamax(&mut self, pos: &Chess, depth: u8, mut alpha: i32, beta: i32, ply: usize) -> i32 {
+    fn negamax(&mut self, pos: &Chess, mut depth: u8, mut alpha: i32, beta: i32, ply: usize) -> i32 {
         self.pv_table.update_length(ply);
 
         if self.time_controller.is_time_up() {
@@ -226,14 +226,19 @@ impl Search {
 
         let is_pv = beta - alpha != 1;
         let static_eval = self.eval.nnue_eval(&self.nnue_state, pos);
+        let is_check = pos.is_check();
 
         /* Reverse Futility Pruning */
-        if !is_pv && depth <= self.config.rfp_depth && !pos.is_check() {
+        if !is_pv && depth <= self.config.rfp_depth && !is_check {
             let score = static_eval - self.config.rfp_depth_multiplier * depth as i32;
             if score >= beta {
                 self.info.nodes += 1;
                 return static_eval;
             }
+        }
+
+        if is_check {
+            depth += 1;
         }
 
         /* Threefold Repetition Detection */
