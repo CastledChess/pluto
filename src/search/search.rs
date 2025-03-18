@@ -43,6 +43,7 @@ pub struct Search {
     config: Config,
     /// Principal Variation table for storing best lines
     pv_table: PvTable,
+    killer_moves: Vec<Vec<Option<Move>>>,
     pub mode: UciMode,
 }
 
@@ -148,7 +149,7 @@ impl Search {
 
     /// Starts the search process using iterative deepening.
     /// Prints search information and best move when complete.
-    pub fn go(&mut self, mode: &UciMode) {
+    pub fn go(&mut self) {
         self.time_controller.setup(&self.params, &self.game);
         self.info.nodes = 0;
         self.transposition_table.new_search();
@@ -255,7 +256,7 @@ impl Search {
 
         let start_alpha = alpha;
         let mut best_score = -100000;
-        let ordered_moves = self.order_moves(entry, moves);
+        let ordered_moves = self.order_moves(entry, ply, moves);
         let mut best_move = &ordered_moves[0];
 
         for i in 0..ordered_moves.len() {
@@ -289,11 +290,14 @@ impl Search {
                 if best_score > alpha {
                     // Stocking PV search Line
                     self.pv_table.store(ply, best_move.clone());
+                    alpha = best_score;
 
-                    alpha = best_score
-                }
-                if alpha >= beta {
-                    break;
+                    if alpha >= beta {
+                        if ply < self.config.max_depth_killer_moves {
+                            self.add_killer_move(ply, m.clone());
+                        }
+                        break;
+                    }
                 }
             }
         }
@@ -362,7 +366,7 @@ impl Search {
     ///
     /// # Returns
     /// * Numerical value representing move importance
-    fn move_importance(&self, entry: &TranspositionTableEntry, m: &Move) -> i32 {
+    fn move_importance(&self, entry: &TranspositionTableEntry,  ply: usize, m: &Move) -> i32 {
         match m {
             m if m == &entry._move => self.config.mo_tt_entry_value,
             m if m.is_capture() => {
@@ -371,6 +375,7 @@ impl Search {
 
                 self.config.mo_capture_value * capture_value - piece_value
             }
+            m if self.killer_moves[ply].contains(&Some(m.clone())) => self.config.mo_killer_move_value,
             m if m.is_promotion() => m.promotion().unwrap() as i32,
             _ => 0,
         }
@@ -384,10 +389,10 @@ impl Search {
     ///
     /// # Returns
     /// * Ordered list of moves
-    fn order_moves(&self, entry: TranspositionTableEntry, mut moves: MoveList) -> MoveList {
+    fn order_moves(&self, entry: TranspositionTableEntry, ply: usize,  mut moves: MoveList) -> MoveList {
         moves.sort_by(|a, b| {
-            let a_score = self.move_importance(&entry, &a);
-            let b_score = self.move_importance(&entry, &b);
+            let a_score = self.move_importance(&entry, ply, &a);
+            let b_score = self.move_importance(&entry, ply, &b);
 
             b_score.cmp(&a_score)
         });
@@ -395,6 +400,15 @@ impl Search {
         moves
     }
 
+    fn add_killer_move(&mut self, ply: usize, m: Move) {
+        if ply < self.config.max_depth_killer_moves {
+            let killers = &mut self.killer_moves[ply];
+            if !killers.contains(&Some(m.clone())) {
+                killers.pop();
+                killers.insert(0, Some(m));
+            }
+        }
+    }
 
     pub fn web() -> Self {
         let config = Config::load().unwrap();
@@ -411,6 +425,7 @@ impl Search {
             history: Vec::new(),
             pv_table: PvTable::default(),
             nnue_state: *NNUEState::from_board(Chess::default().board()),
+            killer_moves: vec![vec![None; config.nb_killer_moves]; config.max_depth_killer_moves],
             config,
         }
     }
@@ -433,6 +448,7 @@ impl Default for Search {
             history: Vec::new(),
             pv_table: PvTable::default(),
             nnue_state: *NNUEState::from_board(Chess::default().board()),
+            killer_moves: vec![vec![None; config.nb_killer_moves]; config.max_depth_killer_moves],
             config,
         }
     }
