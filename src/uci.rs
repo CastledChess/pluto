@@ -8,7 +8,6 @@ use queues::{queue, IsQueue, Queue};
 use shakmaty::fen::Fen;
 use shakmaty::uci::UciMove;
 use shakmaty::{CastlingMode, Chess, Position};
-use wasm_bindgen::prelude::wasm_bindgen;
 use crate::{postMessage};
 
 pub enum UciMode {
@@ -133,7 +132,7 @@ impl Uci {
                 _ => self.log(&format!("Unknown go command: {}", token.unwrap())),
             },
             false => {
-                self.search.go(&self.mode);
+                self.search.go();
             }
         }
     }

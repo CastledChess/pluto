@@ -5,3 +5,6 @@ rfp_depth_multiplier = 50
 tt_size = 0x7FFFFF
 mo_tt_entry_value = 200
 mo_capture_value = 50
+mo_killer_move_value = 100
+max_depth_killer_moves = 64
+nb_killer_moves = 2
