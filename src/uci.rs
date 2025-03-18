@@ -1,3 +1,6 @@
+//! UCI (Universal Chess Interface) protocol implementation module.
+//! Handles communication between the chess engine and UCI-compatible chess GUIs.
+
 use crate::nnue::NNUEState;
 use crate::search::search::Search;
 use crate::time_control::time_mode::TimeMode;
@@ -5,46 +8,83 @@ use queues::{queue, IsQueue, Queue};
 use shakmaty::fen::Fen;
 use shakmaty::uci::UciMove;
 use shakmaty::{CastlingMode, Chess, Position};
+use crate::{postMessage};
 
+pub enum UciMode {
+    Native,
+    Web,
+}
+
+/// UCI option types supported by the engine.
 #[allow(dead_code)]
 enum UciOptionType {
+    /// Boolean option (true/false)
     Check,
+    /// Integer option with minimum and maximum bounds
     Spin,
+    /// Option with predefined choices
     Combo,
+    /// Action trigger without value
     Button,
+    /// Text input option
     String,
 }
 
+/// Represents a configurable UCI option with its properties.
 struct UciOption {
+    /// Name identifier of the option
     name: String,
+    /// Default value as string representation
     default: String,
+    /// Type of the option (determines how it's handled)
     option_type: UciOptionType,
+    /// Minimum allowed value for numeric options
     min: i32,
+    /// Maximum allowed value for numeric options
     max: i32,
 }
 
+/// Main UCI protocol handler implementing the Universal Chess Interface.
 pub struct Uci {
+    pub mode: UciMode,
+    /// Search engine instance for position evaluation
     pub search: Search,
+    /// Available configuration options for the engine
     options: Vec<UciOption>,
 }
 
 impl Default for Uci {
+    /// Creates a new UCI instance with default settings.
     fn default() -> Uci {
         Uci {
+            mode: UciMode::Native,
             search: Search::default(),
             options: vec![],
-            // options: vec![UciOption {
-            //     name: "MoveOverhead".to_string(),
-            //     default: "30".to_string(),
-            //     option_type: UciOptionType::Spin,
-            //     min: 0,
-            //     max: 1000,
-            // }],
         }
     }
 }
 
 impl Uci {
+    /// Creates a new UCI instance for web-based GUIs.
+    pub fn web() -> Uci {
+        Uci {
+            mode: UciMode::Web,
+            search: Search::web(),
+            options: vec![],
+        }
+    }
+
+    fn log(&self, message: &str) {
+        match self.mode {
+            UciMode::Native => println!("{}", message),
+            UciMode::Web => postMessage(message),
+        }
+    }
+
+    /// Parses a UCI command string and processes it.
+    ///
+    /// # Arguments
+    /// * `command` - String containing the UCI command to process
     pub fn parse_command(&mut self, command: &str) {
         let tokens_vec: Vec<&str> = command.split_whitespace().collect();
         let mut tokens: Queue<&str> = queue![];
@@ -56,6 +96,10 @@ impl Uci {
         self.parse_tokens(&mut tokens);
     }
 
+    /// Processes a queue of command tokens.
+    ///
+    /// # Arguments
+    /// * `tokens` - Queue of command tokens to process
     fn parse_tokens(&mut self, tokens: &mut Queue<&str>) {
         let first_token = tokens.remove().unwrap();
 
@@ -67,10 +111,14 @@ impl Uci {
             "ucinewgame" => self.handle_ucinewgame(),
             "position" => self.handle_position(tokens),
             "go" => self.handle_go(tokens),
-            _ => println!("Unknown command: {}", first_token),
+            _ => self.log(&format!("Unknown command: {}", first_token)),
         }
     }
 
+    /// Handles the 'go' command with various search parameters.
+    ///
+    /// # Arguments
+    /// * `tokens` - Queue containing search parameters
     fn handle_go(&mut self, tokens: &mut Queue<&str>) {
         let token = tokens.remove();
 
@@ -81,15 +129,18 @@ impl Uci {
                 "depth" => self.handle_go_depth(tokens),
                 "movetime" => self.handle_go_movetime(tokens),
                 "infinite" => self.handle_go_infinite(tokens),
-                _ => println!("Unknown go command: {}", token.unwrap()),
+                _ => self.log(&format!("Unknown go command: {}", token.unwrap())),
             },
-
             false => {
                 self.search.go();
             }
         }
     }
 
+    /// Sets up timing parameters for black.
+    ///
+    /// # Arguments
+    /// * `tokens` - Queue containing time value in milliseconds
     fn handle_btime(&mut self, tokens: &mut Queue<&str>) {
         let token = tokens.remove().unwrap();
         let time = token.parse::<u128>().unwrap();
@@ -101,6 +152,10 @@ impl Uci {
         self.handle_go(tokens);
     }
 
+    /// Sets up timing parameters for white.
+    ///
+    /// # Arguments
+    /// * `tokens` - Queue containing time value in milliseconds
     fn handle_wtime(&mut self, tokens: &mut Queue<&str>) {
         let token = tokens.remove().unwrap();
         let time = token.parse::<u128>().unwrap();
@@ -112,6 +167,10 @@ impl Uci {
         self.handle_go(tokens);
     }
 
+    /// Sets up search with fixed depth.
+    ///
+    /// # Arguments
+    /// * `tokens` - Queue containing depth value in plies
     fn handle_go_depth(&mut self, tokens: &mut Queue<&str>) {
         let token = tokens.remove().unwrap();
         let depth = token.parse::<u8>().unwrap();
@@ -122,6 +181,10 @@ impl Uci {
         self.handle_go(tokens);
     }
 
+    /// Sets up search with fixed time per move.
+    ///
+    /// # Arguments
+    /// * `tokens` - Queue containing time value in milliseconds
     fn handle_go_movetime(&mut self, tokens: &mut Queue<&str>) {
         let token = tokens.remove().unwrap();
         let time = token.parse::<u128>().unwrap();
@@ -133,6 +196,10 @@ impl Uci {
         self.handle_go(tokens);
     }
 
+    /// Processes position setup commands.
+    ///
+    /// # Arguments
+    /// * `tokens` - Queue containing position type and moves
     fn handle_position(&mut self, tokens: &mut Queue<&str>) {
         let token = tokens.remove().unwrap();
 
@@ -141,10 +208,14 @@ impl Uci {
                 self.handle_position_startpos(tokens);
             }
             "fen" => self.handle_position_fen(tokens),
-            _ => println!("Unknown position command: {}", token),
+            _ => self.log(&format!("Unknown position command: {}", token)),
         }
     }
 
+    /// Sets up the initial chess position and applies moves.
+    ///
+    /// # Arguments
+    /// * `tokens` - Queue containing moves to apply
     fn handle_position_startpos(&mut self, tokens: &mut Queue<&str>) {
         self.search.game = Chess::default();
 
@@ -164,6 +235,10 @@ impl Uci {
         self.search.nnue_state = *NNUEState::from_board(&self.search.game.board());
     }
 
+    /// Sets up a position from FEN string and applies moves.
+    ///
+    /// # Arguments
+    /// * `tokens` - Queue containing FEN string and moves
     fn handle_position_fen(&mut self, tokens: &mut Queue<&str>) {
         let mut fen_vec: Vec<&str> = vec![tokens.remove().ok().unwrap()];
         let mut token: &str = "";
@@ -199,6 +274,10 @@ impl Uci {
         self.search.nnue_state = *NNUEState::from_board(&self.search.game.board());
     }
 
+    /// Processes option setting commands.
+    ///
+    /// # Arguments
+    /// * `tokens` - Queue containing option name and value
     fn handle_setoption(&self, tokens: &mut Queue<&str>) {
         tokens.remove().unwrap(); // name
         let name = tokens.remove().unwrap();
@@ -210,11 +289,15 @@ impl Uci {
         }
 
         match name {
-            "MoveOverhead" => println!("info string set move overhead"), // search.move_overhead = value.parse();
-            _ => println!("info string unknown option: {}", name),
+            "MoveOverhead" => self.log(&format!("info string set move overhead")),
+            _ => self.log(&format!("info string unknown option: {}", name)),
         }
     }
 
+    /// Sets up infinite search mode.
+    ///
+    /// # Arguments
+    /// * `tokens` - Queue of remaining tokens to process
     fn handle_go_infinite(&mut self, tokens: &mut Queue<&str>) {
         self.search.params.depth = u8::MAX;
         self.search.time_controller.time_mode = TimeMode::Infinite;
@@ -222,23 +305,25 @@ impl Uci {
         self.handle_go(tokens);
     }
 
+    /// Resets the game to initial position.
     fn handle_ucinewgame(&mut self) {
         self.search.game = Chess::default();
     }
 
+    /// Responds to isready command.
     fn handle_isready(&self) {
-        // wait for engine to be ready
-
-        println!("readyok");
+        self.log(&format!("readyok"));
     }
 
+    /// Handles quit command by exiting the program.
     fn handle_quit(&self) {
         std::process::exit(0);
     }
 
+    /// Sends engine identification and available options.
     fn handle_uci(&self) {
-        println!("id name CastledEngine");
-        println!("id author CastledChess");
+        self.log(&format!("id name CastledEngine"));
+        self.log(&format!("id author CastledChess"));
 
         for option in &self.options {
             let type_str = match option.option_type {
@@ -249,10 +334,10 @@ impl Uci {
                 UciOptionType::String => "string",
             };
 
-            println!(
+            self.log(&format!(
                 "option name {} type {} default {} min {} max {}",
                 option.name, type_str, option.default, option.min, option.max
-            );
+            ));
         }
     }
 }

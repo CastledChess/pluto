@@ -1,19 +1,32 @@
+/// Position evaluation module containing piece-square tables and evaluation functions.
 use crate::nnue::NNUEState;
 use shakmaty::{Chess, Color, Position};
 
+/// Contains evaluation data including piece-square tables and piece values
+/// Used for both simple positional evaluation and PeSTO (Piece-Square Tables Only) evaluation.
 #[allow(dead_code)]
 pub struct Eval {
+    /// White piece-square tables for simple evaluation (6 piece types, 64 squares each)
     w_square_tables: [[i32; 64]; 6],
+    /// Black piece-square tables for simple evaluation (6 piece types, 64 squares each)
     b_square_tables: [[i32; 64]; 6],
+    /// White middle game piece-square tables for PeSTO evaluation
     w_mg_square_tables: [[i32; 64]; 6],
+    /// Black middle game piece-square tables for PeSTO evaluation
     b_mg_square_tables: [[i32; 64]; 6],
+    /// White end game piece-square tables for PeSTO evaluation
     w_eg_square_tables: [[i32; 64]; 6],
+    /// Black end game piece-square tables for PeSTO evaluation
     b_eg_square_tables: [[i32; 64]; 6],
+    /// Phase values for each piece type in PeSTO evaluation
     phases: [i32; 6],
+    /// Piece values used in NNUE evaluation
     nnue_piece_values: [i32; 6],
 }
 
 impl Eval {
+    /// Creates a new Eval instance with default values.
+    /// Initializes piece-square tables for both simple and PeSTO evaluation methods.
     pub(crate) fn default() -> Eval {
         // tables for simple eval
         let mut w_square_tables = [[0; 64]; 6];
@@ -58,6 +71,13 @@ impl Eval {
 }
 
 impl Eval {
+    /// Simple position evaluation using piece values and piece-square tables.
+    ///
+    /// # Arguments
+    /// * `pos` - Current chess position to evaluate
+    ///
+    /// # Returns
+    /// * Integer score from White's perspective
     #[allow(dead_code)]
     pub fn simple_eval(&mut self, pos: &Chess) -> i32 {
         let mut eval = 0;
@@ -74,6 +94,13 @@ impl Eval {
         eval * if turn == Color::White { 1 } else { -1 }
     }
 
+    /// PeSTO (Piece-Square Tables Only) evaluation using separate middle game and endgame tables.
+    ///
+    /// # Arguments
+    /// * `pos` - Current chess position to evaluate
+    ///
+    /// # Returns
+    /// * Integer score from White's perspective, interpolated between middle and endgame phases
     #[allow(dead_code)]
     pub fn pesto_eval(&mut self, pos: &Chess) -> i32 {
         let mut mg_eval = 0;
@@ -103,6 +130,14 @@ impl Eval {
         (mg_eval * phase + eg_eval * (24 - phase)) / 24 * if turn == Color::White { 1 } else { -1 }
     }
 
+    /// Neural Network evaluation using NNUE architecture.
+    ///
+    /// # Arguments
+    /// * `state` - Current NNUE network state
+    /// * `pos` - Current chess position to evaluate
+    ///
+    /// # Returns
+    /// * Integer score from White's perspective, scaled by material on board
     pub fn nnue_eval(&self, state: &NNUEState, pos: &Chess) -> i32 {
         let board = pos.board().clone();
         let trun = pos.turn();
