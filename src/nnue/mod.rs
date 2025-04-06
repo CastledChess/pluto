@@ -1,11 +1,10 @@
 /**
  * Thanks to this article from the stockfish nnue authors https://github.com/official-stockfish/nnue-pytorch/blob/master/docs/nnue.md
  * And Carp for this nnue implementation https://github.com/dede1751/carp
- *
- * This implementation is a "frankenstein" of carp's NNUE
 */
 use shakmaty::{Board, Color, Piece, Square};
 
+// use nnue::train::{CR_MAX, CR_MIN, FEATURES, HIDDEN, QA, QB, SCALE};
 use std::alloc;
 use std::mem;
 use std::ops::{Deref, DerefMut};
@@ -129,6 +128,7 @@ impl NNUEState {
     /// Inits nnue state from a board
     /// To be able to run debug builds, heap is allocated manually
     pub fn from_board(board: &Board) -> Box<Self> {
+        println!("Allocating NNUEState");
         let mut boxed: Box<Self> = unsafe {
             let layout = alloc::Layout::new::<Self>();
             let ptr = alloc::alloc_zeroed(layout);
@@ -206,7 +206,7 @@ impl NNUEState {
             out += squared_crelu(value) * (weight as i32);
         }
 
-        (out / QA + MODEL.output_bias as i32) * SCALE / QAB
+        (out / QA as i32 + MODEL.output_bias as i32) * SCALE / QAB as i32
     }
 }
 
@@ -233,6 +233,7 @@ fn squared_crelu(value: i16) -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nnue::train::HIDDEN;
     use shakmaty::{Chess, Move, Position, Role};
 
     #[test]

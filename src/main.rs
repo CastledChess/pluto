@@ -1,24 +1,24 @@
 //! CastledEngine - A UCI chess engine implementation in Rust.
 //! Main entry point and module declarations.
 
-use std::cell::RefCell;
 use crate::uci::Uci;
+use chrono::Local;
+use std::cell::RefCell;
 use std::io;
 use std::rc::Rc;
-use chrono::Local;
 use wasm_bindgen::prelude::*;
 use web_sys::Worker;
 
-mod bound;           // Position score bound types
-mod config;         // Engine configuration settings
-mod eval;           // Position evaluation
-mod moves;          // Move generation and handling
-mod nnue;           // Neural Network evaluation
-mod principal_variation;  // Best move line tracking
-mod search;         // Search algorithm implementation
-mod time_control;   // Time management
-mod transposition;  // Transposition table for position caching
-mod uci;            // Universal Chess Interface protocol
+mod bound; // Position score bound types
+mod config; // Engine configuration settings
+mod eval; // Position evaluation
+mod moves; // Move generation and handling
+mod nnue; // Neural Network evaluation
+mod principal_variation; // Best move line tracking
+mod search; // Search algorithm implementation
+mod time_control; // Time management
+mod transposition; // Transposition table for position caching
+mod uci; // Universal Chess Interface protocol
 
 /// Main entry point for the chess engine.
 /// Initializes the UCI interface and enters the main command processing loop.
@@ -29,6 +29,10 @@ pub fn main() {
     println!("uciok");
 
     let mut uci = Uci::default();
+    println!(
+        "{}: UCI engine initialized",
+        Local::now().format("%Y-%m-%d %H:%M:%S")
+    );
     let mut input = String::new();
 
     // Main command processing loop

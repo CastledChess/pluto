@@ -5,17 +5,17 @@ use crate::moves::DEFAULT_MOVE;
 use crate::nnue::NNUEState;
 use crate::nnue::OFF;
 use crate::nnue::ON;
+use crate::postMessage;
 use crate::principal_variation::PvTable;
 use crate::search::search_info::SearchInfo;
 use crate::search::search_params::SearchParams;
 use crate::time_control::time_controller::TimeController;
 use crate::transposition::{TranspositionTable, TranspositionTableEntry};
+use crate::uci::UciMode;
 use shakmaty::zobrist::{Zobrist64, ZobristHash};
 use shakmaty::{
     CastlingMode, CastlingSide, Chess, EnPassantMode, Move, MoveList, Piece, Position, Square,
 };
-use crate::{postMessage};
-use crate::uci::UciMode;
 
 /// A structure responsible for managing the chess game search process.
 /// It contains all necessary components for search execution including game state,
@@ -182,7 +182,10 @@ impl Search {
             ));
         }
 
-        self.log(&format!("bestmove {}", best_move.to_uci(CastlingMode::Standard)));
+        self.log(&format!(
+            "bestmove {}",
+            best_move.to_uci(CastlingMode::Standard)
+        ));
     }
 
     /// Performs negamax search with alpha-beta pruning and various optimizations.
@@ -366,7 +369,7 @@ impl Search {
     ///
     /// # Returns
     /// * Numerical value representing move importance
-    fn move_importance(&self, entry: &TranspositionTableEntry,  ply: usize, m: &Move) -> i32 {
+    fn move_importance(&self, entry: &TranspositionTableEntry, ply: usize, m: &Move) -> i32 {
         match m {
             m if m == &entry._move => self.config.mo_tt_entry_value,
             m if m.is_capture() => {
@@ -375,7 +378,9 @@ impl Search {
 
                 self.config.mo_capture_value * capture_value - piece_value
             }
-            m if self.killer_moves[ply].contains(&Some(m.clone())) => self.config.mo_killer_move_value,
+            m if self.killer_moves[ply].contains(&Some(m.clone())) => {
+                self.config.mo_killer_move_value
+            }
             m if m.is_promotion() => m.promotion().unwrap() as i32,
             _ => 0,
         }
@@ -389,7 +394,12 @@ impl Search {
     ///
     /// # Returns
     /// * Ordered list of moves
-    fn order_moves(&self, entry: TranspositionTableEntry, ply: usize,  mut moves: MoveList) -> MoveList {
+    fn order_moves(
+        &self,
+        entry: TranspositionTableEntry,
+        ply: usize,
+        mut moves: MoveList,
+    ) -> MoveList {
         moves.sort_by(|a, b| {
             let a_score = self.move_importance(&entry, ply, &a);
             let b_score = self.move_importance(&entry, ply, &b);
