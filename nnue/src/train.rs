@@ -22,7 +22,7 @@ pub const CR_MAX: i16 = 255;
 
 // Quantization factors
 pub const QA: i16 = 255;
-pub const QB: i16 = 255 * 64;
+pub const QB: i16 = 64;
 
 // Eval scaling factor
 pub const SCALE: i32 = 400;
@@ -46,7 +46,7 @@ pub fn train() {
             batch_size: 16_384,
             batches_per_superbatch: 6104,
             start_superbatch: 1,
-            end_superbatch: 2,
+            end_superbatch: 100,
         },
         wdl_scheduler: wdl::ConstantWDL { value: 0.75 },
         lr_scheduler: lr::StepLR {
