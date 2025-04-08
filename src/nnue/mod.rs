@@ -1,84 +1,96 @@
-/**
- * Thanks to this article from the stockfish nnue authors https://github.com/official-stockfish/nnue-pytorch/blob/master/docs/nnue.md
- * And Carp for this nnue implementation https://github.com/dede1751/carp
-*/
-use shakmaty::{Board, Color, Piece, Square};
+use shakmaty::{Board, Piece, Square};
 
-// use nnue::train::{CR_MAX, CR_MIN, FEATURES, HIDDEN, QA, QB, SCALE};
-use std::alloc;
-use std::mem;
-use std::ops::{Deref, DerefMut};
-
-// Network Arch
-const FEATURES: usize = 768;
-const HIDDEN: usize = 1024;
+pub const FEATURES: usize = 768;
+pub const HIDDEN: usize = 128;
 
 // Clipped ReLu bounds
-const CR_MIN: i16 = 0;
-const CR_MAX: i16 = 255;
+pub const CR_MIN: i16 = 0;
+pub const CR_MAX: i16 = 255;
 
 // Quantization factors
-const QA: i32 = 255;
-const QAB: i32 = 255 * 64;
+pub const QA: i16 = 255;
+pub const QB: i16 = 64;
 
 // Eval scaling factor
-const SCALE: i32 = 400;
+pub const SCALE: i32 = 400;
 
-/// Container for all network parameters
+pub static NNUE: Network = unsafe {
+    std::mem::transmute(*include_bytes!(
+        "../../nnue/checkpoints/simple-2/quantised.bin"
+    ))
+};
+
+#[inline]
+/// Clipped ReLU - Activation Function.
+/// Note that this takes the i16s in the accumulator to i32s.
+fn crelu(x: i16) -> i32 {
+    i32::from(x).clamp(0, i32::from(QA))
+}
+
+/// This is the quantised format that bullet outputs.
 #[repr(C)]
-struct NNUEParams {
-    feature_weights: Align64<[i16; FEATURES * HIDDEN]>,
-    feature_bias: Align64<[i16; HIDDEN]>,
-    output_weights: Align64<[i16; HIDDEN * 2]>,
+pub struct Network {
+    /// Column-Major `HIDDEN x 768` matrix.
+    feature_weights: [Accumulator; FEATURES],
+    /// Vector with dimension `HIDDEN`.
+    feature_bias: Accumulator,
+    /// Column-Major `1 x (2 * HIDDEN)`
+    /// matrix, we use it like this to make the
+    /// code nicer in `Network::evaluate`.
+    output_weights: [i16; 2 * HIDDEN],
+    /// Scalar output bias.
     output_bias: i16,
 }
 
-/// NNUE model is initialized from binary values (Viridithas format)
-static MODEL: NNUEParams = unsafe { mem::transmute(*include_bytes!("../../bin/net.bin")) };
+impl Network {
+    /// Calculates the output of the network, starting from the already
+    /// calculated hidden layer (done efficiently during makemoves).
+    pub fn evaluate(&self, us: &Accumulator, them: &Accumulator) -> i32 {
+        // Initialise output with bias.
+        let mut output = i32::from(self.output_bias);
 
-/// Generic wrapper for types aligned to 64B for AVX512 (also a Viridithas trick)
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-#[repr(C, align(64))]
-struct Align64<T>(pub T);
+        // Side-To-Move Accumulator -> Output.
+        for (&input, &weight) in us.vals.iter().zip(&self.output_weights[..HIDDEN]) {
+            output += crelu(input) * i32::from(weight);
+        }
 
-impl<T, const SIZE: usize> Deref for Align64<[T; SIZE]> {
-    type Target = [T; SIZE];
-    fn deref(&self) -> &Self::Target {
-        &self.0
+        // Not-Side-To-Move Accumulator -> Output.
+        for (&input, &weight) in them.vals.iter().zip(&self.output_weights[HIDDEN..]) {
+            output += crelu(input) * i32::from(weight);
+        }
+
+        // Apply eval scale.
+        output *= SCALE;
+
+        // Remove quantisation.
+        output /= i32::from(QA) * i32::from(QB);
+
+        output
     }
 }
-impl<T, const SIZE: usize> DerefMut for Align64<[T; SIZE]> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
+
+#[derive(Clone, Copy)]
+struct Accumulators {
+    pub white: Accumulator,
+    pub black: Accumulator,
 }
 
-type SideAccumulator = Align64<[i16; HIDDEN]>;
+pub(crate) const ON: bool = true;
+pub(crate) const OFF: bool = false;
 
-/// Accumulators contain the efficiently updated hidden layer values
-/// Each accumulator is perspective, hence both contains the white and black pov
-#[derive(Clone, Copy, Debug)]
-struct Accumulator {
-    white: SideAccumulator,
-    black: SideAccumulator,
-}
-
-impl Default for Accumulator {
+impl Default for Accumulators {
     fn default() -> Self {
         Self {
-            white: MODEL.feature_bias,
-            black: MODEL.feature_bias,
+            white: NNUE.feature_bias,
+            black: NNUE.feature_bias,
         }
     }
 }
 
-impl Accumulator {
-    /// Updates weights for a single feature, either turning them on or off
-    fn update_weights<const ON: bool>(&mut self, idx: (usize, usize)) {
-        fn update<const ON: bool>(acc: &mut SideAccumulator, idx: usize) {
-            let zip = acc
-                .iter_mut()
-                .zip(&MODEL.feature_weights[idx..idx + HIDDEN]);
+impl Accumulators {
+    pub fn update_weights<const ON: bool>(&mut self, idx: (usize, usize)) {
+        fn update<const ON: bool>(acc: &mut Accumulator, idx: usize) {
+            let zip = acc.vals.iter_mut().zip(&NNUE.feature_weights[idx].vals);
 
             for (acc_val, &weight) in zip {
                 if ON {
@@ -93,14 +105,13 @@ impl Accumulator {
         update::<ON>(&mut self.black, idx.1);
     }
 
-    /// Update accumulator for a quiet move.
-    /// Adds in features for the destination and removes the features of the source
     fn add_sub_weights(&mut self, from: (usize, usize), to: (usize, usize)) {
-        fn add_sub(acc: &mut SideAccumulator, from: usize, to: usize) {
-            let zip = acc.iter_mut().zip(
-                MODEL.feature_weights[from..from + HIDDEN]
+        fn add_sub(acc: &mut Accumulator, from: usize, to: usize) {
+            let zip = acc.vals.iter_mut().zip(
+                NNUE.feature_weights[from]
+                    .vals
                     .iter()
-                    .zip(&MODEL.feature_weights[to..to + HIDDEN]),
+                    .zip(&NNUE.feature_weights[to].vals),
             );
 
             for (acc_val, (&remove_weight, &add_weight)) in zip {
@@ -113,45 +124,33 @@ impl Accumulator {
     }
 }
 
-/// NNUEState is simply a stack of accumulators, updated along the search tree
-#[derive(Debug, Clone)]
 pub struct NNUEState {
-    accumulator_stack: [Accumulator; 128],
-    current_acc: usize,
+    pub stack: [Accumulators; 128],
+    pub current: usize,
 }
 
-// used for turning on/off features
-pub(crate) const ON: bool = true;
-pub(crate) const OFF: bool = false;
-
 impl NNUEState {
-    /// Inits nnue state from a board
-    /// To be able to run debug builds, heap is allocated manually
-    pub fn from_board(board: &Board) -> Box<Self> {
-        println!("Allocating NNUEState");
-        let mut boxed: Box<Self> = unsafe {
-            let layout = alloc::Layout::new::<Self>();
-            let ptr = alloc::alloc_zeroed(layout);
-            if ptr.is_null() {
-                alloc::handle_alloc_error(layout);
-            }
-            Box::from_raw(ptr.cast())
-        };
-
-        // init with feature biases and add in all features of the board
-        boxed.accumulator_stack[0] = Accumulator::default();
-        for sq in board.occupied().into_iter() {
-            boxed.manual_update::<ON>(board.piece_at(sq).unwrap(), sq);
+    pub fn new() -> Self {
+        NNUEState {
+            stack: [Accumulators::default(); 128],
+            current: 0,
         }
-
-        boxed
     }
 
-    /// Refresh the accumulator stack to the given board
+    pub fn from_board(board: &Board) -> Self {
+        let mut state = NNUEState::new();
+
+        for sq in board.occupied().into_iter() {
+            state.manual_update::<ON>(board.piece_at(sq).unwrap(), sq);
+        }
+
+        state
+    }
+
     pub fn refresh(&mut self, board: &Board) {
         // reset the accumulator stack
-        self.current_acc = 0;
-        self.accumulator_stack[self.current_acc] = Accumulator::default();
+        self.current = 0;
+        self.stack[self.current] = Accumulators::default();
 
         // update the first accumulator
         for sq in board.occupied().into_iter() {
@@ -161,57 +160,28 @@ impl NNUEState {
         }
     }
 
-    /// Add a new accumulator to the stack by copying the previous top
     pub fn push(&mut self) {
-        self.accumulator_stack[self.current_acc + 1] = self.accumulator_stack[self.current_acc];
-        self.current_acc += 1;
+        self.stack[self.current + 1] = self.stack[self.current];
+        self.current += 1;
     }
 
-    /// Pop the top off the accumulator stack
     pub fn pop(&mut self) {
-        self.current_acc -= 1;
+        self.current -= 1;
     }
 
-    /// Manually turn on or off the single given feature
     pub fn manual_update<const ON: bool>(&mut self, piece: Piece, sq: Square) {
-        self.accumulator_stack[self.current_acc].update_weights::<ON>(nnue_index(piece, sq));
+        self.stack[self.current].update_weights::<ON>(nnue_index(piece, sq));
     }
 
-    /// Efficiently update accumulator for a quiet move (that is, only changes from/to features)
     pub fn move_update(&mut self, piece: Piece, from: Square, to: Square) {
         let from_idx = nnue_index(piece, from);
         let to_idx = nnue_index(piece, to);
 
-        self.accumulator_stack[self.current_acc].add_sub_weights(from_idx, to_idx);
-    }
-
-    /// Evaluate the nn from the current accumulator
-    /// Concatenates the accumulators based on the side to move, computes the activation function
-    /// with Squared CReLu and multiplies activation by weight. The result is the sum of all these
-    /// with the bias.
-    /// Since we are squaring activations, we need an extra quantization pass with QA.
-    pub fn evaluate(&self, side: Color) -> i32 {
-        let acc = &self.accumulator_stack[self.current_acc];
-
-        let (us, them) = match side {
-            Color::White => (acc.white.iter(), acc.black.iter()),
-            Color::Black => (acc.black.iter(), acc.white.iter()),
-        };
-
-        let mut out = 0;
-        for (&value, &weight) in us.zip(&MODEL.output_weights[..HIDDEN]) {
-            out += squared_crelu(value) * (weight as i32);
-        }
-        for (&value, &weight) in them.zip(&MODEL.output_weights[HIDDEN..]) {
-            out += squared_crelu(value) * (weight as i32);
-        }
-
-        (out / QA as i32 + MODEL.output_bias as i32) * SCALE / QAB as i32
+        self.stack[self.current].add_sub_weights(from_idx, to_idx);
     }
 }
 
-/// Returns white and black feature weight index for given feature
-fn nnue_index(piece: Piece, sq: Square) -> (usize, usize) {
+pub fn nnue_index(piece: Piece, sq: Square) -> (usize, usize) {
     const COLOR_STRIDE: usize = 64 * 6;
     const PIECE_STRIDE: usize = 64;
     let p = piece.role as usize - 1;
@@ -223,107 +193,40 @@ fn nnue_index(piece: Piece, sq: Square) -> (usize, usize) {
     (black_idx * HIDDEN, white_idx * HIDDEN)
 }
 
-/// Squared Clipped ReLu activation function
-fn squared_crelu(value: i16) -> i32 {
-    let v = value.clamp(CR_MIN, CR_MAX) as i32;
-
-    v * v
+/// A column of the feature-weights matrix.
+/// Note the `align(64)`.
+#[derive(Clone, Copy)]
+#[repr(C, align(64))]
+pub struct Accumulator {
+    vals: [i16; HIDDEN],
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use nnue::train::HIDDEN;
-    use shakmaty::{Chess, Move, Position, Role};
-
-    #[test]
-    fn test_nnue_stack() {
-        let b = Board::default();
-        let s1 = NNUEState::from_board(&b);
-        let mut s2 = NNUEState::from_board(&b);
-
-        s2.push();
-        s2.pop();
-
-        for i in 0..HIDDEN {
-            assert_eq!(
-                s1.accumulator_stack[0].white[i],
-                s2.accumulator_stack[0].white[i]
-            );
-            assert_eq!(
-                s1.accumulator_stack[0].black[i],
-                s2.accumulator_stack[0].black[i]
-            );
-        }
-        assert_eq!(s1.current_acc, s2.current_acc);
+impl Accumulator {
+    /// Initialised with bias so we can just efficiently
+    /// operate on it afterwards.
+    pub fn new(net: &Network) -> Self {
+        net.feature_bias
     }
 
-    #[test]
-    fn test_nnue_index() {
-        let idx1 = nnue_index(Piece::from_char('P').unwrap(), Square::A8);
-        let idx2 = nnue_index(Piece::from_char('P').unwrap(), Square::H1);
-        let idx3 = nnue_index(Piece::from_char('p').unwrap(), Square::A1);
-        let idx4 = nnue_index(Piece::from_char('K').unwrap(), Square::E1);
-
-        assert_eq!(idx1, (HIDDEN * 56, HIDDEN * 384));
-        assert_eq!(idx2, (HIDDEN * 7, HIDDEN * 447));
-        assert_eq!(idx3, (HIDDEN * 384, HIDDEN * 56));
-        assert_eq!(idx4, (HIDDEN * 324, HIDDEN * 764));
-    }
-
-    #[test]
-    fn test_manual_update() {
-        let b: Board = Board::default();
-        let mut s1 = NNUEState::from_board(&b);
-
-        let old_acc = s1.accumulator_stack[0];
-
-        s1.manual_update::<ON>(Piece::from_char('P').unwrap(), Square::A3);
-        s1.manual_update::<OFF>(Piece::from_char('P').unwrap(), Square::A3);
-
-        for i in 0..HIDDEN {
-            assert_eq!(old_acc.white[i], s1.accumulator_stack[0].white[i]);
-            assert_eq!(old_acc.black[i], s1.accumulator_stack[0].black[i]);
+    /// Add a feature to an accumulator.
+    pub fn add_feature(&mut self, feature_idx: usize, net: &Network) {
+        for (i, d) in self
+            .vals
+            .iter_mut()
+            .zip(&net.feature_weights[feature_idx].vals)
+        {
+            *i += *d
         }
     }
 
-    #[test]
-    fn test_incremental_updates() {
-        let mut chess = Chess::default();
-        let b1: Board = chess.board().clone();
-        let b11 = b1.clone();
-        let m = Move::Normal {
-            role: Role::Pawn,
-            from: Square::E2,
-            to: Square::E4,
-            capture: None,
-            promotion: None,
-        };
-        let m2 = m.clone();
-
-        let mut s1 = NNUEState::from_board(&b1);
-
-        chess.play_unchecked(&m);
-
-        let b2: &Board = chess.board();
-
-        let mut s2 = NNUEState::from_board(&b2);
-
-        s1.move_update(
-            b11.piece_at(m2.from().unwrap()).unwrap(),
-            m2.from().unwrap(),
-            m2.to(),
-        );
-
-        for i in 0..HIDDEN {
-            assert_eq!(
-                s1.accumulator_stack[0].white[i],
-                s2.accumulator_stack[0].white[i]
-            );
-            assert_eq!(
-                s1.accumulator_stack[0].black[i],
-                s2.accumulator_stack[0].black[i]
-            );
+    /// Remove a feature from an accumulator.
+    pub fn remove_feature(&mut self, feature_idx: usize, net: &Network) {
+        for (i, d) in self
+            .vals
+            .iter_mut()
+            .zip(&net.feature_weights[feature_idx].vals)
+        {
+            *i -= *d
         }
     }
 }

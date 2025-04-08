@@ -3,8 +3,6 @@
 
 use serde_derive::Deserialize;
 use std::process::exit;
-use toml;
-
 /// Wrapper structure for the TOML configuration data.
 /// Used for deserializing the configuration file.
 #[derive(Deserialize)]
@@ -62,3 +60,4 @@ impl Config {
         Ok(data.config)
     }
 }
+

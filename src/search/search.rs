@@ -434,7 +434,7 @@ impl Search {
             time_controller: TimeController::default(),
             history: Vec::new(),
             pv_table: PvTable::default(),
-            nnue_state: *NNUEState::from_board(Chess::default().board()),
+            nnue_state: NNUEState::from_board(Chess::default().board()),
             killer_moves: vec![vec![None; config.nb_killer_moves]; config.max_depth_killer_moves],
             config,
         }
@@ -457,7 +457,7 @@ impl Default for Search {
             time_controller: TimeController::default(),
             history: Vec::new(),
             pv_table: PvTable::default(),
-            nnue_state: *NNUEState::from_board(Chess::default().board()),
+            nnue_state: NNUEState::from_board(Chess::default().board()),
             killer_moves: vec![vec![None; config.nb_killer_moves]; config.max_depth_killer_moves],
             config,
         }

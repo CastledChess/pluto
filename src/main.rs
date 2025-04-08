@@ -3,10 +3,13 @@
 
 use crate::uci::Uci;
 use chrono::Local;
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 use std::cell::RefCell;
 use std::io;
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 use web_sys::Worker;
 
 mod bound; // Position score bound types

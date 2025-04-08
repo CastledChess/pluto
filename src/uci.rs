@@ -2,13 +2,13 @@
 //! Handles communication between the chess engine and UCI-compatible chess GUIs.
 
 use crate::nnue::NNUEState;
+use crate::postMessage;
 use crate::search::search::Search;
 use crate::time_control::time_mode::TimeMode;
 use queues::{queue, IsQueue, Queue};
 use shakmaty::fen::Fen;
 use shakmaty::uci::UciMove;
 use shakmaty::{CastlingMode, Chess, Position};
-use crate::{postMessage};
 
 pub enum UciMode {
     Native,
@@ -232,7 +232,7 @@ impl Uci {
             }
         }
 
-        self.search.nnue_state = *NNUEState::from_board(&self.search.game.board());
+        self.search.nnue_state = NNUEState::from_board(&self.search.game.board());
     }
 
     /// Sets up a position from FEN string and applies moves.
@@ -271,7 +271,7 @@ impl Uci {
             }
         }
 
-        self.search.nnue_state = *NNUEState::from_board(&self.search.game.board());
+        self.search.nnue_state = NNUEState::from_board(&self.search.game.board());
     }
 
     /// Processes option setting commands.

@@ -14,7 +14,7 @@
 };
 
 pub const FEATURES: usize = 768;
-pub const HIDDEN: usize = 1024;
+pub const HIDDEN: usize = 128;
 
 // Clipped ReLu bounds
 pub const CR_MIN: i16 = 0;
@@ -35,7 +35,7 @@ pub fn train() {
         .input(inputs::Chess768)
         .output_buckets(outputs::Single)
         .feature_transformer(HIDDEN)
-        .activate(Activation::SCReLU)
+        .activate(Activation::CReLU)
         .add_layer(1)
         .build();
 
