@@ -70,7 +70,7 @@ impl Network {
 }
 
 #[derive(Clone, Copy)]
-struct Accumulators {
+pub struct Accumulators {
     pub white: Accumulator,
     pub black: Accumulator,
 }
@@ -182,15 +182,10 @@ impl NNUEState {
 }
 
 pub fn nnue_index(piece: Piece, sq: Square) -> (usize, usize) {
-    const COLOR_STRIDE: usize = 64 * 6;
-    const PIECE_STRIDE: usize = 64;
-    let p = piece.role as usize - 1;
-    let c = piece.color as usize;
+    let white_idx = sq as usize * piece.role as usize;
+    let black_idx = sq.flip_vertical() as usize * piece.role as usize;
 
-    let white_idx = c * COLOR_STRIDE + p * PIECE_STRIDE + sq.flip_vertical() as usize;
-    let black_idx = (1 ^ c) * COLOR_STRIDE + p * PIECE_STRIDE + sq as usize;
-
-    (black_idx * HIDDEN, white_idx * HIDDEN)
+    (white_idx, black_idx)
 }
 
 /// A column of the feature-weights matrix.

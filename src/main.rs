@@ -32,10 +32,6 @@ pub fn main() {
     println!("uciok");
 
     let mut uci = Uci::default();
-    println!(
-        "{}: UCI engine initialized",
-        Local::now().format("%Y-%m-%d %H:%M:%S")
-    );
     let mut input = String::new();
 
     // Main command processing loop
