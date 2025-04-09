@@ -14,7 +14,7 @@
 };
 
 pub const FEATURES: usize = 768;
-pub const HIDDEN: usize = 128;
+pub const HIDDEN: usize = 256;
 
 // Clipped ReLu bounds
 pub const CR_MIN: i16 = 0;
@@ -35,12 +35,12 @@ pub fn train() {
         .input(inputs::Chess768)
         .output_buckets(outputs::Single)
         .feature_transformer(HIDDEN)
-        .activate(Activation::CReLU)
+        .activate(Activation::SCReLU)
         .add_layer(1)
         .build();
 
     let schedule = TrainingSchedule {
-        net_id: "simple".to_string(),
+        net_id: "screlu-768-256-1".to_string(),
         eval_scale: SCALE as f32,
         steps: TrainingSteps {
             batch_size: 16_384,
@@ -48,11 +48,11 @@ pub fn train() {
             start_superbatch: 1,
             end_superbatch: 100,
         },
-        wdl_scheduler: wdl::ConstantWDL { value: 0.75 },
+        wdl_scheduler: wdl::ConstantWDL { value: 0.6 },
         lr_scheduler: lr::StepLR {
-            start: 0.001,
+            start: 0.002,
             gamma: 0.1,
-            step: 18,
+            step: 10,
         },
         save_rate: 10,
     };
@@ -60,7 +60,7 @@ pub fn train() {
     trainer.set_optimiser_params(optimiser::AdamWParams::default());
 
     let settings = LocalSettings {
-        threads: 4,
+        threads: 32,
         test_set: None,
         output_directory: "checkpoints",
         batch_queue_size: 64,

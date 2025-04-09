@@ -1,7 +1,7 @@
 use shakmaty::{Board, Piece, Square};
 
 pub const FEATURES: usize = 768;
-pub const HIDDEN: usize = 128;
+pub const HIDDEN: usize = 256;
 
 // Clipped ReLu bounds
 pub const CR_MIN: i16 = 0;
@@ -16,7 +16,7 @@ pub const SCALE: i32 = 400;
 
 pub static NNUE: Network = unsafe {
     std::mem::transmute(*include_bytes!(
-        "../../nnue/checkpoints/simple-100/quantised.bin"
+        "../../nnue/checkpoints/screlu-768-256-1-10/quantised.bin"
     ))
 };
 
@@ -25,6 +25,11 @@ pub static NNUE: Network = unsafe {
 /// Note that this takes the i16s in the accumulator to i32s.
 fn crelu(x: i16) -> i32 {
     i32::from(x).clamp(0, i32::from(QA))
+}
+fn screlu(x: i16) -> i32 {
+    let crelu = i32::from(x).clamp(0, i32::from(QA));
+
+    crelu * crelu
 }
 
 /// This is the quantised format that bullet outputs.
@@ -51,12 +56,12 @@ impl Network {
 
         // Side-To-Move Accumulator -> Output.
         for (&input, &weight) in us.vals.iter().zip(&self.output_weights[..HIDDEN]) {
-            output += crelu(input) * i32::from(weight);
+            output += screlu(input) * i32::from(weight);
         }
 
         // Not-Side-To-Move Accumulator -> Output.
         for (&input, &weight) in them.vals.iter().zip(&self.output_weights[HIDDEN..]) {
-            output += crelu(input) * i32::from(weight);
+            output += screlu(input) * i32::from(weight);
         }
 
         // Apply eval scale.
