@@ -16,7 +16,7 @@ pub const SCALE: i32 = 400;
 
 pub static NNUE: Network = unsafe {
     std::mem::transmute(*include_bytes!(
-        "../../nnue/checkpoints/simple-2/quantised.bin"
+        "../../nnue/checkpoints/simple-100/quantised.bin"
     ))
 };
 
@@ -87,43 +87,6 @@ impl Default for Accumulators {
     }
 }
 
-impl Accumulators {
-    pub fn update_weights<const ON: bool>(&mut self, idx: (usize, usize)) {
-        fn update<const ON: bool>(acc: &mut Accumulator, idx: usize) {
-            let zip = acc.vals.iter_mut().zip(&NNUE.feature_weights[idx].vals);
-
-            for (acc_val, &weight) in zip {
-                if ON {
-                    *acc_val += weight;
-                } else {
-                    *acc_val -= weight;
-                }
-            }
-        }
-
-        update::<ON>(&mut self.white, idx.0);
-        update::<ON>(&mut self.black, idx.1);
-    }
-
-    fn add_sub_weights(&mut self, from: (usize, usize), to: (usize, usize)) {
-        fn add_sub(acc: &mut Accumulator, from: usize, to: usize) {
-            let zip = acc.vals.iter_mut().zip(
-                NNUE.feature_weights[from]
-                    .vals
-                    .iter()
-                    .zip(&NNUE.feature_weights[to].vals),
-            );
-
-            for (acc_val, (&remove_weight, &add_weight)) in zip {
-                *acc_val += add_weight - remove_weight;
-            }
-        }
-
-        add_sub(&mut self.white, from.0, to.0);
-        add_sub(&mut self.black, from.1, to.1);
-    }
-}
-
 pub struct NNUEState {
     pub stack: [Accumulators; 128],
     pub current: usize,
@@ -170,22 +133,47 @@ impl NNUEState {
     }
 
     pub fn manual_update<const ON: bool>(&mut self, piece: Piece, sq: Square) {
-        self.stack[self.current].update_weights::<ON>(nnue_index(piece, sq));
+        let (white_idx, black_idx) = nnue_index(piece, sq);
+
+        if ON {
+            self.stack[self.current].white.add_feature(white_idx, &NNUE);
+            self.stack[self.current].black.add_feature(black_idx, &NNUE);
+        } else {
+            self.stack[self.current]
+                .white
+                .remove_feature(white_idx, &NNUE);
+            self.stack[self.current]
+                .black
+                .remove_feature(black_idx, &NNUE);
+        }
     }
 
     pub fn move_update(&mut self, piece: Piece, from: Square, to: Square) {
         let from_idx = nnue_index(piece, from);
         let to_idx = nnue_index(piece, to);
 
-        self.stack[self.current].add_sub_weights(from_idx, to_idx);
+        self.stack[self.current]
+            .white
+            .remove_feature(from_idx.0, &NNUE);
+        self.stack[self.current]
+            .black
+            .remove_feature(from_idx.1, &NNUE);
+
+        self.stack[self.current].white.add_feature(to_idx.0, &NNUE);
+        self.stack[self.current].black.add_feature(to_idx.1, &NNUE);
     }
 }
 
 pub fn nnue_index(piece: Piece, sq: Square) -> (usize, usize) {
-    let white_idx = sq as usize * piece.role as usize;
-    let black_idx = sq.flip_vertical() as usize * piece.role as usize;
+    const COLOR_STRIDE: usize = 64 * 6;
+    const PIECE_STRIDE: usize = 64;
+    let p = piece.role as usize - 1;
+    let c = piece.color as usize;
 
-    (white_idx, black_idx)
+    let white_idx = c * COLOR_STRIDE + p * PIECE_STRIDE + sq.flip_vertical() as usize;
+    let black_idx = (1 ^ c) * COLOR_STRIDE + p * PIECE_STRIDE + sq as usize;
+
+    (black_idx, white_idx)
 }
 
 /// A column of the feature-weights matrix.

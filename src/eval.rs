@@ -153,12 +153,14 @@ impl Eval {
         };
         let eval = NNUE.evaluate(&us, &them);
 
-        let total_material = board.knights().count() as i32 * self.nnue_piece_values[1]
-            + board.bishops().count() as i32 * self.nnue_piece_values[2]
-            + board.rooks().count() as i32 * self.nnue_piece_values[3]
-            + board.queens().count() as i32 * self.nnue_piece_values[4];
+        return eval;
 
-        (eval * (700 + total_material / 32)) / 1024
+        // let total_material = board.knights().count() as i32 * self.nnue_piece_values[1]
+        //     + board.bishops().count() as i32 * self.nnue_piece_values[2]
+        //     + board.rooks().count() as i32 * self.nnue_piece_values[3]
+        //     + board.queens().count() as i32 * self.nnue_piece_values[4];
+        //
+        // (eval * (700 + total_material / 32)) / 1024
     }
 }
 
