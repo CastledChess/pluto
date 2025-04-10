@@ -5,6 +5,7 @@ use crate::moves::DEFAULT_MOVE;
 use crate::nnue::NNUEState;
 use crate::nnue::OFF;
 use crate::nnue::ON;
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 use crate::postMessage;
 use crate::principal_variation::PvTable;
 use crate::search::search_info::SearchInfo;
@@ -51,6 +52,7 @@ impl Search {
     fn log(&self, message: &str) {
         match self.mode {
             UciMode::Native => println!("{}", message),
+            #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
             UciMode::Web => postMessage(message),
         }
     }
@@ -149,7 +151,7 @@ impl Search {
 
     /// Starts the search process using iterative deepening.
     /// Prints search information and best move when complete.
-    pub fn go(&mut self) {
+    pub fn go(&mut self, print: bool) {
         self.time_controller.setup(&self.params, &self.game);
         self.info.nodes = 0;
         self.transposition_table.new_search();
@@ -171,21 +173,25 @@ impl Search {
             let elapsed = self.time_controller.elapsed();
             let pv = self.pv_table.collect();
 
-            self.log(&format!(
-                "info depth {} nodes {} nps {} score cp {} time {} pv {}",
-                self.info.depth,
-                self.info.nodes,
-                self.info.nodes as u128 * 1000 / (elapsed + 1) as u128,
-                iteration_score,
-                elapsed,
-                pv.join(" ")
-            ));
+            if print {
+                self.log(&format!(
+                    "info depth {} nodes {} nps {} score cp {} time {} pv {}",
+                    self.info.depth,
+                    self.info.nodes,
+                    self.info.nodes as u128 * 1000 / (elapsed + 1) as u128,
+                    iteration_score,
+                    elapsed,
+                    pv.join(" ")
+                ));
+            }
         }
 
-        self.log(&format!(
-            "bestmove {}",
-            best_move.to_uci(CastlingMode::Standard)
-        ));
+        if print {
+            self.log(&format!(
+                "bestmove {}",
+                best_move.to_uci(CastlingMode::Standard)
+            ));
+        }
     }
 
     /// Performs negamax search with alpha-beta pruning and various optimizations.
@@ -420,6 +426,7 @@ impl Search {
         }
     }
 
+    #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
     pub fn web() -> Self {
         let config = Config::load().unwrap();
 

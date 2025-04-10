@@ -51,20 +51,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1628fb46dfa0b37568d12e5edd512553eccf6a22a78e8bde00bb4aed84d5bdbf"
 
 [[package]]
-name = "castled_engine"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "queues",
- "serde",
- "serde_derive",
- "shakmaty",
- "toml",
- "wasm-bindgen",
- "web-sys",
-]
-
-[[package]]
 name = "cc"
 version = "1.2.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -193,6 +179,20 @@ name = "once_cell"
 version = "1.21.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42f5e15c9953c5e4ccceeb2e7382a716482c34515315f7b03532b8b4e8393d2d"
+
+[[package]]
+name = "pluto"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "queues",
+ "serde",
+ "serde_derive",
+ "shakmaty",
+ "toml",
+ "wasm-bindgen",
+ "web-sys",
+]
 
 [[package]]
 name = "proc-macro2"

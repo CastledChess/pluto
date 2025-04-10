@@ -38,11 +38,12 @@ impl PartialEq for Bound {
     /// * `true` if both instances represent the same bound type
     /// * `false` otherwise
     fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Bound::Exact, Bound::Exact) => true,
-            (Bound::Beta, Bound::Beta) => true,
-            (Bound::Alpha, Bound::Alpha) => true,
-            _ => false,
-        }
+        matches!(
+            (self, other),
+            (Bound::Exact, Bound::Exact)
+                | (Bound::Beta, Bound::Beta)
+                | (Bound::Alpha, Bound::Alpha)
+        )
     }
 }
+
