@@ -27,7 +27,7 @@ mod uci; // Universal Chess Interface protocol
 /// Initializes the UCI interface and enters the main command processing loop.
 /// Follows the Universal Chess Interface (UCI) protocol for chess engine communication.
 pub fn main() {
-    println!("id name CastledEngine");
+    println!("id name Pluto");
     println!("id author CastledChess");
     println!("uciok");
 
