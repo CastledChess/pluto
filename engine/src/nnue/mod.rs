@@ -14,11 +14,8 @@ pub const QB: i16 = 64;
 // Eval scaling factor
 pub const SCALE: i32 = 400;
 
-pub static NNUE: Network = unsafe {
-    std::mem::transmute(*include_bytes!(
-        "../../nnue/checkpoints/screlu-768-256-1-10/quantised.bin"
-    ))
-};
+pub static NNUE: Network =
+    unsafe { std::mem::transmute(*include_bytes!("../../../bin/simple-100/quantised.bin")) };
 
 #[inline]
 /// Clipped ReLU - Activation Function.
