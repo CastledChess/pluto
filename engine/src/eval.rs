@@ -139,8 +139,8 @@ impl Eval {
     /// # Returns
     /// * Integer score from White's perspective, scaled by material on board
     pub fn nnue_eval(&self, state: &NNUEState, pos: &Chess) -> i32 {
-        let board = pos.board().clone();
-
+        // let board = pos.board().clone();
+        //
         let (us, them) = match pos.turn() {
             Color::White => (
                 state.stack[state.current].white,
@@ -151,9 +151,8 @@ impl Eval {
                 state.stack[state.current].white,
             ),
         };
-        let eval = NNUE.evaluate(&us, &them);
 
-        return eval;
+        NNUE.evaluate(&us, &them)
 
         // let total_material = board.knights().count() as i32 * self.nnue_piece_values[1]
         //     + board.bishops().count() as i32 * self.nnue_piece_values[2]

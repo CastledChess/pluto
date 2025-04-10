@@ -2,7 +2,6 @@
 //! Main entry point and module declarations.
 
 use crate::uci::Uci;
-use chrono::Local;
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 use std::cell::RefCell;
 use std::io;

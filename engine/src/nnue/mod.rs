@@ -182,12 +182,6 @@ pub struct Accumulator {
 }
 
 impl Accumulator {
-    /// Initialised with bias so we can just efficiently
-    /// operate on it afterwards.
-    pub fn new(net: &Network) -> Self {
-        net.feature_bias
-    }
-
     /// Add a feature to an accumulator.
     pub fn add_feature(&mut self, feature_idx: usize, net: &Network) {
         for (i, d) in self
