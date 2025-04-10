@@ -1,5 +1,5 @@
 
-# Castled Engine
+# Pluto Chess Engine
 
 by [Castled Org](https://github.com/CastledChess)
 

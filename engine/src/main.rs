@@ -1,5 +1,6 @@
 //! CastledEngine - A UCI chess engine implementation in Rust.
 //! Main entry point and module declarations.
+
 use crate::uci::Uci;
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 use std::cell::RefCell;
@@ -25,7 +26,7 @@ mod uci; // Universal Chess Interface protocol
 /// Initializes the UCI interface and enters the main command processing loop.
 /// Follows the Universal Chess Interface (UCI) protocol for chess engine communication.
 pub fn main() {
-    println!("id name CastledEngine");
+    println!("id name Pluto");
     println!("id author CastledChess");
     println!("uciok");
 

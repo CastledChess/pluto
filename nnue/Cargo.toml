@@ -1,0 +1,10 @@
+[package]
+name = "nnue"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bullet-utils = { git = "https://github.com/jw1912/bullet" }
+bullet = { package = "bullet_lib", git = 'https://github.com/jw1912/bullet', features = ["cuda"] }
+shakmaty = "0.27.2"
+

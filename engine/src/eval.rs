@@ -1,5 +1,5 @@
 /// Position evaluation module containing piece-square tables and evaluation functions.
-use crate::nnue::NNUEState;
+use crate::nnue::{NNUEState, NNUE};
 use shakmaty::{Chess, Color, Position};
 
 /// Contains evaluation data including piece-square tables and piece values
@@ -139,16 +139,27 @@ impl Eval {
     /// # Returns
     /// * Integer score from White's perspective, scaled by material on board
     pub fn nnue_eval(&self, state: &NNUEState, pos: &Chess) -> i32 {
-        let board = pos.board().clone();
-        let trun = pos.turn();
-        let eval = state.evaluate(trun);
+        // let board = pos.board().clone();
+        //
+        let (us, them) = match pos.turn() {
+            Color::White => (
+                state.stack[state.current].white,
+                state.stack[state.current].black,
+            ),
+            Color::Black => (
+                state.stack[state.current].black,
+                state.stack[state.current].white,
+            ),
+        };
 
-        let total_material = board.knights().count() as i32 * self.nnue_piece_values[1]
-            + board.bishops().count() as i32 * self.nnue_piece_values[2]
-            + board.rooks().count() as i32 * self.nnue_piece_values[3]
-            + board.queens().count() as i32 * self.nnue_piece_values[4];
+        NNUE.evaluate(&us, &them)
 
-        (eval * (700 + total_material / 32)) / 1024
+        // let total_material = board.knights().count() as i32 * self.nnue_piece_values[1]
+        //     + board.bishops().count() as i32 * self.nnue_piece_values[2]
+        //     + board.rooks().count() as i32 * self.nnue_piece_values[3]
+        //     + board.queens().count() as i32 * self.nnue_piece_values[4];
+        //
+        // (eval * (700 + total_material / 32)) / 1024
     }
 }
 

@@ -271,7 +271,7 @@ impl Uci {
             }
         }
 
-        self.search.nnue_state = *NNUEState::from_board(&self.search.game.board());
+        self.search.nnue_state = NNUEState::from_board(&self.search.game.board());
     }
 
     /// Sets up a position from FEN string and applies moves.
@@ -310,7 +310,7 @@ impl Uci {
             }
         }
 
-        self.search.nnue_state = *NNUEState::from_board(&self.search.game.board());
+        self.search.nnue_state = NNUEState::from_board(&self.search.game.board());
     }
 
     /// Processes option setting commands.
@@ -361,7 +361,7 @@ impl Uci {
 
     /// Sends engine identification and available options.
     fn handle_uci(&self) {
-        self.log(&format!("id name CastledEngine"));
+        self.log(&format!("id name Pluto"));
         self.log(&format!("id author CastledChess"));
 
         for option in &self.options {
