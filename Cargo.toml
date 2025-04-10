@@ -9,7 +9,7 @@ repository = "https://github.com/CastledChess/engine"
 
 [lib]
 crate-type = ["cdylib"]
-name = "CastledEngine"
+name = "castled_engine"
 path = "src/main.rs"
 
 [dependencies]

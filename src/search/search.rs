@@ -5,6 +5,7 @@ use crate::moves::DEFAULT_MOVE;
 use crate::nnue::NNUEState;
 use crate::nnue::OFF;
 use crate::nnue::ON;
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 use crate::postMessage;
 use crate::principal_variation::PvTable;
 use crate::search::search_info::SearchInfo;
@@ -51,6 +52,7 @@ impl Search {
     fn log(&self, message: &str) {
         match self.mode {
             UciMode::Native => println!("{}", message),
+            #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
             UciMode::Web => postMessage(message),
         }
     }
@@ -424,6 +426,7 @@ impl Search {
         }
     }
 
+    #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
     pub fn web() -> Self {
         let config = Config::load().unwrap();
 

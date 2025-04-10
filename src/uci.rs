@@ -2,9 +2,11 @@
 //! Handles communication between the chess engine and UCI-compatible chess GUIs.
 
 use crate::nnue::NNUEState;
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 use crate::postMessage;
 use crate::search::search::Search;
 use crate::time_control::time_mode::TimeMode;
+use chrono::Local;
 use queues::{queue, IsQueue, Queue};
 use shakmaty::fen::Fen;
 use shakmaty::uci::UciMove;
@@ -12,6 +14,7 @@ use shakmaty::{CastlingMode, Chess, Position};
 
 pub enum UciMode {
     Native,
+    #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
     Web,
 }
 
@@ -66,6 +69,7 @@ impl Default for Uci {
 
 impl Uci {
     /// Creates a new UCI instance for web-based GUIs.
+    #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
     pub fn web() -> Uci {
         Uci {
             mode: UciMode::Web,
@@ -77,6 +81,7 @@ impl Uci {
     fn log(&self, message: &str) {
         match self.mode {
             UciMode::Native => println!("{}", message),
+            #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
             UciMode::Web => postMessage(message),
         }
     }
@@ -126,6 +131,7 @@ impl Uci {
         ];
 
         let mut total = 0;
+        let start_time = Local::now().timestamp_millis();
 
         for position in positions {
             let fen: Fen = position.parse().ok().unwrap();
@@ -139,8 +145,13 @@ impl Uci {
 
             total += self.search.info.nodes;
         }
+        let elapsed = Local::now().timestamp_millis() - start_time;
 
-        println!("{} nodes", total);
+        println!(
+            "{} nodes {} nps",
+            total,
+            total as u128 * 1000 / (elapsed + 1) as u128
+        );
     }
 
     /// Handles the 'go' command with various search parameters.
