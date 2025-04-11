@@ -17,7 +17,7 @@ by [Castled Org](https://github.com/CastledChess)
 
 ## About
 
-**Castled Engine** is a UCI-compatible chess engine written in **Rust**, leveraging the [Shakmaty Chess Library](https://github.com/niklasf/shakmaty). It was primarily designed for analyzing chess games as part of the **Castled Chess Project**.
+**Pluto** is a UCI-compatible chess engine written in **Rust**, leveraging the [Shakmaty Chess Library](https://github.com/niklasf/shakmaty). It was primarily designed for analyzing chess games as part of the **Castled Chess Project**.
 
 ---
 

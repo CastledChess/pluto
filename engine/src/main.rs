@@ -4,9 +4,9 @@
 use crate::uci::Uci;
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 use std::cell::RefCell;
-use std::io;
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 use std::rc::Rc;
+use std::{env, io, process::exit};
 use wasm_bindgen::prelude::*;
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 use web_sys::Worker;
@@ -26,12 +26,19 @@ mod uci; // Universal Chess Interface protocol
 /// Initializes the UCI interface and enters the main command processing loop.
 /// Follows the Universal Chess Interface (UCI) protocol for chess engine communication.
 pub fn main() {
-    println!("id name Pluto");
-    println!("id author CastledChess");
-    println!("uciok");
+    let args: Vec<String> = env::args().collect();
 
     let mut uci = Uci::default();
     let mut input = String::new();
+
+    if args.iter().any(|e| e == "bench") {
+        uci.parse_command("bench");
+        exit(0);
+    }
+
+    println!("id name Pluto");
+    println!("id author CastledChess");
+    println!("uciok");
 
     // Main command processing loop
     loop {

@@ -37,7 +37,7 @@ pub struct Search {
     /// Best move found in current iteration
     iteration_move: Move,
     /// Transposition table for storing previously evaluated positions
-    transposition_table: TranspositionTable,
+    pub transposition_table: TranspositionTable,
     /// Position history for repetition detection
     history: Vec<Zobrist64>,
     /// Engine configuration settings
