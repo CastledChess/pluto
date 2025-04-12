@@ -15,7 +15,7 @@ pub const QB: i16 = 64;
 pub const SCALE: i32 = 400;
 
 pub static NNUE: Network =
-    unsafe { std::mem::transmute(*include_bytes!("../../../bin/simple-100/quantised.bin")) };
+    unsafe { std::mem::transmute(*include_bytes!("../../../bin/(768-128)x2-1_crelu.bin")) };
 
 #[inline]
 /// Clipped ReLU - Activation Function.

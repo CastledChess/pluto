@@ -14,7 +14,7 @@
 };
 
 pub const FEATURES: usize = 768;
-pub const HIDDEN: usize = 256;
+pub const HIDDEN: usize = 1024;
 
 // Clipped ReLu bounds
 pub const CR_MIN: i16 = 0;
@@ -35,12 +35,12 @@ pub fn train() {
         .input(inputs::Chess768)
         .output_buckets(outputs::Single)
         .feature_transformer(HIDDEN)
-        .activate(Activation::SCReLU)
+        .activate(Activation::CReLU)
         .add_layer(1)
         .build();
 
     let schedule = TrainingSchedule {
-        net_id: "screlu-768-256-1".to_string(),
+        net_id: "crelu-768-1024-1".to_string(),
         eval_scale: SCALE as f32,
         steps: TrainingSteps {
             batch_size: 16_384,
