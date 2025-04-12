@@ -167,6 +167,8 @@ impl Uci {
             true => match token.unwrap() {
                 "btime" => self.handle_btime(tokens),
                 "wtime" => self.handle_wtime(tokens),
+                "binc" => self.handle_binc(tokens),
+                "winc" => self.handle_winc(tokens),
                 "depth" => self.handle_go_depth(tokens),
                 "movetime" => self.handle_go_movetime(tokens),
                 "infinite" => self.handle_go_infinite(tokens),
@@ -176,6 +178,24 @@ impl Uci {
                 self.search.go(true);
             }
         }
+    }
+
+    fn handle_winc(&mut self, tokens: &mut Queue<&str>) {
+        let token = tokens.remove().unwrap();
+        let _inc = token.parse::<u32>().unwrap();
+
+        // TODO: save winc
+
+        self.handle_go(tokens);
+    }
+
+    fn handle_binc(&mut self, tokens: &mut Queue<&str>) {
+        let token = tokens.remove().unwrap();
+        let _inc = token.parse::<u32>().unwrap();
+
+        // TODO: save binc
+
+        self.handle_go(tokens);
     }
 
     /// Sets up timing parameters for black.
