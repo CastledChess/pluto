@@ -1,7 +1,7 @@
 use shakmaty::{Board, Piece, Square};
 
 pub const FEATURES: usize = 768;
-pub const HIDDEN: usize = 128;
+pub const HIDDEN: usize = 1024;
 
 // Clipped ReLu bounds
 // pub const CR_MIN: i16 = 0;
@@ -15,7 +15,7 @@ pub const QB: i16 = 64;
 pub const SCALE: i32 = 400;
 
 pub static NNUE: Network =
-    unsafe { std::mem::transmute(*include_bytes!("../../../bin/simple-100/quantised.bin")) };
+    unsafe { std::mem::transmute(*include_bytes!("../../../bin/(768-1024)x2-1_crelu.bin")) };
 
 #[inline]
 /// Clipped ReLU - Activation Function.
