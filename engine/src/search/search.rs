@@ -1,3 +1,5 @@
+use std::cmp::max;
+
 use crate::bound::Bound;
 use crate::config::Config;
 use crate::eval::Eval;
@@ -279,10 +281,20 @@ impl Search {
             match i {
                 0 => score = -self.negamax(&pos, depth - 1, -beta, -alpha, ply + 1),
                 _ => {
-                    score = -self.negamax(&pos, depth - 1, -alpha - 1, -alpha, ply + 1);
+                    if depth >= 3 && i >= 4 && !pos.is_check() {
+                        let r = max(1, (0.7 * (depth as f64).ln() * (i as f64).ln() / 2.4) as u8);
 
-                    if score > alpha && beta - alpha > 1 {
-                        score = -self.negamax(&pos, depth - 1, -beta, -alpha, ply + 1);
+                        score = -self.negamax(&pos, depth - r as u8, -(alpha + 1), -alpha, ply + 1);
+                    } else {
+                        score = alpha + 1;
+                    }
+
+                    if score > alpha {
+                        score = -self.negamax(&pos, depth - 1, -(alpha + 1), -alpha, ply + 1);
+
+                        if score > alpha && score < beta {
+                            score = -self.negamax(&pos, depth - 1, -beta, -alpha, ply + 1);
+                        }
                     }
                 }
             }
