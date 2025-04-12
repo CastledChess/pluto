@@ -224,6 +224,12 @@ impl Search {
             return self.quiesce(pos, alpha, beta, self.config.qsearch_depth);
         }
 
+        let is_check = pos.is_check();
+
+        if is_check {
+            depth += 1;
+        }
+
         let is_root = ply == 0;
         let position_key = pos.zobrist_hash::<Zobrist64>(EnPassantMode::Legal);
         let entry = self.transposition_table.probe(position_key);
@@ -242,7 +248,6 @@ impl Search {
 
         let is_pv = beta - alpha != 1;
         let static_eval = self.eval.nnue_eval(&self.nnue_state, pos);
-        let is_check = pos.is_check();
 
         /* Reverse Futility Pruning */
         if !is_pv && depth <= self.config.rfp_depth && !is_check {
@@ -266,10 +271,6 @@ impl Search {
                 true => -100000 + ply as i32,
                 false => 0,
             };
-        }
-
-        if is_check {
-            depth += 1;
         }
 
         let start_alpha = alpha;
