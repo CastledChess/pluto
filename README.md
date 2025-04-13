@@ -21,6 +21,10 @@ by [Castled Org](https://github.com/CastledChess)
 
 ---
 
+## Testing
+
+Pluto is tested with OpenBench, a distributed testing platform for UCI chess engines. The testing is self-hosted at: https://openbench.castled.app
+
 ## Features
 
 ### Core Features
