@@ -29,10 +29,6 @@ mod uci; // Universal Chess Interface protocol
 pub fn main() {
     let args: Vec<String> = env::args().collect();
 
-    println!("id name Pluto");
-    println!("id author CastledChess");
-    println!("uciok");
-
     let (tx, rx) = mpsc::channel::<String>();
 
     let handle = thread::Builder::new()
@@ -47,10 +43,16 @@ pub fn main() {
         .expect("Thread creation failed");
 
     if args.len() > 1 {
-        let command = args[1].clone();
+        let command = args[1..].join(" ");
         tx.send(command).unwrap();
+        drop(tx);
+        handle.join().unwrap();
         exit(0);
     }
+
+    println!("id name Pluto");
+    println!("id author CastledChess");
+    println!("uciok");
 
     let mut input = String::new();
 
@@ -67,6 +69,7 @@ pub fn main() {
         tx.send(command).unwrap();
     }
 
+    drop(tx);
     handle.join().unwrap();
 }
 

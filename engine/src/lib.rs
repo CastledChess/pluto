@@ -1,6 +1,7 @@
 //! CastledEngine - A UCI chess engine implementation in Rust.
 //! Main entry point and module declarations.
 
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 use crate::uci::{UciController};
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 use std::cell::RefCell;
@@ -21,10 +22,8 @@ mod time_control; // Time management
 mod transposition; // Transposition table for position caching
 mod uci; // Universal Chess Interface protocol
 
-
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 use std::sync::{LazyLock, Mutex};
-use std::sync::mpsc;
 
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 static UCI: LazyLock<Mutex<UciController>> = LazyLock::new(|| Mutex::new(UciController::web()));
