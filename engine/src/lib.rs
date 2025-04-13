@@ -6,8 +6,6 @@ use crate::uci::{UciController};
 use std::cell::RefCell;
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 use std::rc::Rc;
-use std::{env, io, thread};
-use std::process::exit;
 use wasm_bindgen::prelude::*;
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 use web_sys::Worker;
@@ -23,52 +21,6 @@ mod time_control; // Time management
 mod transposition; // Transposition table for position caching
 mod uci; // Universal Chess Interface protocol
 
-/// Main entry point for the chess engine.
-/// Initializes the UCI interface and enters the main command processing loop.
-/// Follows the Universal Chess Interface (UCI) protocol for chess engine communication.
-pub fn main() {
-    let args: Vec<String> = env::args().collect();
-
-    println!("id name Pluto");
-    println!("id author CastledChess");
-    println!("uciok");
-
-    let (tx, rx) = mpsc::channel::<String>();
-
-    let handle = thread::Builder::new()
-        .stack_size(8 * 1024 * 1024)// 8MB stack size
-        .spawn(move || {
-            let mut uci_controller = UciController::default();
-
-            while let Ok(command) = rx.recv() {
-                uci_controller.parse_command(&command);
-            }
-        })
-        .expect("Thread creation failed");
-
-    if args.len() > 1 {
-        let command = args[1].clone();
-        tx.send(command).unwrap();
-        exit(0);
-    }
-
-    let mut input = String::new();
-
-    loop {
-        input.clear();
-
-        io::stdin().read_line(&mut input).ok().unwrap();
-        let command = input.trim().to_string();
-
-        if command == "quit" {
-            break;
-        }
-
-        tx.send(command).unwrap();
-    }
-
-    handle.join().unwrap();
-}
 
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 use std::sync::{LazyLock, Mutex};

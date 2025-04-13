@@ -5,12 +5,13 @@ edition = "2021"
 authors = ["Ludovic Debever ludovicdebever0@gmail.com", 'Eliott Reigner', 'Mahdi Aribi']
 description = "The Castled org chess engine"
 repository = "https://github.com/CastledChess/pluto"
-members = [
-    "engine",
-]
 
 [lib]
 crate-type = ["cdylib"]
+name = "engine"
+path = "src/lib.rs"
+
+[[bin]]
 name = "engine"
 path = "src/main.rs"
 
