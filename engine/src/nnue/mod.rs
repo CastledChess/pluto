@@ -2,16 +2,8 @@ use shakmaty::{Board, Piece, Square};
 
 pub const FEATURES: usize = 768;
 pub const HIDDEN: usize = 1024;
-
-// Clipped ReLu bounds
-// pub const CR_MIN: i16 = 0;
-// pub const CR_MAX: i16 = 255;
-
-// Quantization factors
 pub const QA: i16 = 255;
 pub const QB: i16 = 64;
-
-// Eval scaling factor
 pub const SCALE: i32 = 400;
 
 pub static NNUE: Network =
@@ -67,7 +59,7 @@ impl Network {
 }
 
 #[derive(Clone, Copy)]
-pub struct Accumulators {
+pub struct AccumulatorCouple {
     pub white: Accumulator,
     pub black: Accumulator,
 }
@@ -75,7 +67,7 @@ pub struct Accumulators {
 pub(crate) const ON: bool = true;
 pub(crate) const OFF: bool = false;
 
-impl Default for Accumulators {
+impl Default for AccumulatorCouple {
     fn default() -> Self {
         Self {
             white: NNUE.feature_bias,
@@ -85,14 +77,14 @@ impl Default for Accumulators {
 }
 
 pub struct NNUEState {
-    pub stack: [Accumulators; 128],
+    pub stack: [AccumulatorCouple; 128],
     pub current: usize,
 }
 
 impl NNUEState {
     pub fn new() -> Self {
         NNUEState {
-            stack: [Accumulators::default(); 128],
+            stack: [AccumulatorCouple::default(); 128],
             current: 0,
         }
     }
@@ -108,11 +100,9 @@ impl NNUEState {
     }
 
     pub fn refresh(&mut self, board: &Board) {
-        // reset the accumulator stack
         self.current = 0;
-        self.stack[self.current] = Accumulators::default();
+        self.stack[self.current] = AccumulatorCouple::default();
 
-        // update the first accumulator
         for sq in board.occupied().into_iter() {
             let piece = board.piece_at(sq).unwrap();
 
@@ -129,19 +119,20 @@ impl NNUEState {
         self.current -= 1;
     }
 
-    pub fn manual_update<const ON: bool>(&mut self, piece: Piece, sq: Square) {
+    pub fn manual_update<const STATE: bool>(&mut self, piece: Piece, sq: Square) {
         let (white_idx, black_idx) = nnue_index(piece, sq);
 
-        if ON {
-            self.stack[self.current].white.add_feature(white_idx, &NNUE);
-            self.stack[self.current].black.add_feature(black_idx, &NNUE);
-        } else {
-            self.stack[self.current]
-                .white
-                .remove_feature(white_idx, &NNUE);
-            self.stack[self.current]
-                .black
-                .remove_feature(black_idx, &NNUE);
+        match STATE {
+            ON => {
+                self.stack[self.current].white.add_feature(white_idx, &NNUE);
+                self.stack[self.current].black.add_feature(black_idx, &NNUE);
+            }
+
+            #[rustfmt::skip]
+            OFF => {
+                self.stack[self.current].white.remove_feature(white_idx, &NNUE);
+                self.stack[self.current].black.remove_feature(black_idx, &NNUE);
+            }
         }
     }
 
@@ -149,13 +140,9 @@ impl NNUEState {
         let from_idx = nnue_index(piece, from);
         let to_idx = nnue_index(piece, to);
 
-        self.stack[self.current]
-            .white
-            .remove_feature(from_idx.0, &NNUE);
-        self.stack[self.current]
-            .black
-            .remove_feature(from_idx.1, &NNUE);
-
+        #[rustfmt::skip]
+        self.stack[self.current].white.remove_feature(from_idx.0, &NNUE);
+        self.stack[self.current].black .remove_feature(from_idx.1, &NNUE);
         self.stack[self.current].white.add_feature(to_idx.0, &NNUE);
         self.stack[self.current].black.add_feature(to_idx.1, &NNUE);
     }

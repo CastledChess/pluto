@@ -32,8 +32,6 @@ pub struct Search {
     pub time_controller: TimeController,
     /// Neural Network evaluation state
     pub nnue_state: NNUEState,
-    /// Position evaluation component
-    eval: Eval,
     /// Best move found in current iteration
     iteration_move: Move,
     /// Transposition table for storing previously evaluated positions
@@ -235,7 +233,7 @@ impl Search {
         }
 
         let is_pv = beta - alpha != 1;
-        let static_eval = self.eval.nnue_eval(&self.nnue_state, pos);
+        let static_eval = Eval::nnue_eval(&self.nnue_state, pos);
 
         /* Reverse Futility Pruning */
         if !is_pv && depth <= self.config.rfp_depth && !pos.is_check() {
@@ -336,7 +334,7 @@ impl Search {
     /// * Static evaluation or tactical sequence evaluation
     fn quiesce(&mut self, pos: &Chess, mut alpha: i32, beta: i32, limit: u8) -> i32 {
         self.info.nodes += 1;
-        let stand_pat = self.eval.nnue_eval(&self.nnue_state, pos);
+        let stand_pat = Eval::nnue_eval(&self.nnue_state, pos);
 
         if limit == 0 {
             return stand_pat;
@@ -433,7 +431,6 @@ impl Search {
         Search {
             mode: UciMode::Web,
             game: Chess::default(),
-            eval: Eval::default(),
             iteration_move: DEFAULT_MOVE.clone(),
             transposition_table: TranspositionTable::new(config.tt_size),
             params: SearchParams::default(),
@@ -456,7 +453,6 @@ impl Default for Search {
         Search {
             mode: UciMode::Native,
             game: Chess::default(),
-            eval: Eval::default(),
             iteration_move: DEFAULT_MOVE.clone(),
             transposition_table: TranspositionTable::new(config.tt_size),
             params: SearchParams::default(),
