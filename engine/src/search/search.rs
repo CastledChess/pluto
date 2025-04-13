@@ -211,13 +211,14 @@ impl Search {
         self.pv_table.update_length(ply);
 
         if self.time_controller.is_time_up() {
-            self.info.nodes += 1;
             return 0;
         }
 
         if depth == 0 {
             return self.quiesce(pos, alpha, beta, self.config.qsearch_depth);
         }
+
+        self.info.nodes += 1;
 
         let is_root = ply == 0;
         let position_key = pos.zobrist_hash::<Zobrist64>(EnPassantMode::Legal);
@@ -232,7 +233,6 @@ impl Search {
                 || (entry.bound == Bound::Alpha && entry.score <= alpha)
                 || (entry.bound == Bound::Beta && entry.score >= beta))
         {
-            self.info.nodes += 1;
             return entry.score;
         }
 
@@ -243,14 +243,12 @@ impl Search {
         if !is_pv && depth <= self.config.rfp_depth && !pos.is_check() {
             let score = static_eval - self.config.rfp_depth_multiplier * depth as i32;
             if score >= beta {
-                self.info.nodes += 1;
                 return static_eval;
             }
         }
 
         /* Threefold Repetition Detection */
         if self.history.iter().filter(|&x| x == &position_key).count() >= 2 {
-            self.info.nodes += 1;
             return 0;
         }
 
@@ -258,7 +256,6 @@ impl Search {
 
         /* Checkmate/Draw Detection */
         if moves.len() == 0 {
-            self.info.nodes += 1;
             return match pos.is_checkmate() {
                 true => -100000 + ply as i32,
                 false => 0,
@@ -282,7 +279,7 @@ impl Search {
                 0 => score = -self.negamax(&pos, depth - 1, -beta, -alpha, ply + 1),
                 _ => {
                     if depth >= 3 && i >= 4 && !pos.is_check() {
-                        let r = max(1, (0.7 * (depth as f64).ln() * (i as f64).ln() / 2.4) as u8);
+                        let r = max(1, (0.7 + (depth as f64).ln() * (i as f64).ln() / 2.4) as u8);
 
                         score = -self.negamax(&pos, depth - r as u8, -(alpha + 1), -alpha, ply + 1);
                     } else {
@@ -332,7 +329,6 @@ impl Search {
         self.transposition_table
             .store(position_key, depth, best_score, bound, best_move.clone());
 
-        self.info.nodes += 1;
         best_score
     }
 
