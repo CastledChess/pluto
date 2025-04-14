@@ -48,7 +48,7 @@ struct UciOption {
 }
 
 /// Main UCI protocol handler implementing the Universal Chess Interface.
-pub struct Uci {
+pub struct UciController {
     pub mode: UciMode,
     /// Search engine instance for position evaluation
     pub search: Search,
@@ -56,10 +56,10 @@ pub struct Uci {
     options: Vec<UciOption>,
 }
 
-impl Default for Uci {
+impl Default for UciController {
     /// Creates a new UCI instance with default settings.
-    fn default() -> Uci {
-        Uci {
+    fn default() -> UciController {
+        UciController {
             mode: UciMode::Native,
             search: Search::default(),
             options: vec![],
@@ -67,11 +67,11 @@ impl Default for Uci {
     }
 }
 
-impl Uci {
+impl UciController {
     /// Creates a new UCI instance for web-based GUIs.
     #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
-    pub fn web() -> Uci {
-        Uci {
+    pub fn web() -> UciController {
+        UciController {
             mode: UciMode::Web,
             search: Search::web(),
             options: vec![],
@@ -350,7 +350,10 @@ impl Uci {
         }
 
         match name {
+            // TODO: Implement option handling
             "MoveOverhead" => self.log(&format!("info string set move overhead")),
+            "Threads" => self.log(&format!("info string set threads")),
+            "Hash" => self.log(&format!("info string set hash")),
             _ => self.log(&format!("info string unknown option: {}", name)),
         }
     }
