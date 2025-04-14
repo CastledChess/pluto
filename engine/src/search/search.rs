@@ -279,7 +279,7 @@ impl Search {
                     if depth >= 3 && i >= 4 && !pos.is_check() {
                         let r = max(1, (0.7 + (depth as f64).ln() * (i as f64).ln() / 2.4) as u8);
 
-                        score = -self.negamax(&pos, depth - r as u8, -(alpha + 1), -alpha, ply + 1);
+                        score = -self.negamax(&pos, depth - r, -(alpha + 1), -alpha, ply + 1);
                     } else {
                         score = alpha + 1;
                     }
