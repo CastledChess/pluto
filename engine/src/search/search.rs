@@ -276,8 +276,13 @@ impl Search {
             match i {
                 0 => score = -self.negamax(&pos, depth - 1, -beta, -alpha, ply + 1),
                 _ => {
-                    if depth >= 3 && i >= 4 && !pos.is_check() {
-                        let r = max(1, (0.7 + (depth as f64).ln() * (i as f64).ln() / 2.4) as u8);
+                    if depth >= 2 && i >= 1 && !pos.is_check() {
+                        let r = match m {
+                            m if m.is_capture() || m.is_promotion() => {
+                                max(1, (0.7 + (depth as f64).ln() * (i as f64).ln() / 3.0) as u8)
+                            }
+                            _ => max(1, (0.7 + (depth as f64).ln() * (i as f64).ln() / 2.4) as u8),
+                        };
 
                         score = -self.negamax(&pos, depth - r, -(alpha + 1), -alpha, ply + 1);
                     } else {
