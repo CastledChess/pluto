@@ -236,12 +236,24 @@ impl Search {
 
         let is_pv = beta - alpha != 1;
         let static_eval = Eval::nnue_eval(&self.nnue_state, pos);
+        let is_check = pos.is_check();
 
-        /* Reverse Futility Pruning */
-        if !is_pv && depth <= self.config.rfp_depth && !pos.is_check() {
-            let score = static_eval - self.config.rfp_depth_multiplier * depth as i32;
-            if score >= beta {
-                return static_eval;
+        if !is_check {
+            /* Null Move Pruning */
+            if depth >= 3 && ply > 0 && Eval::has_pieces(pos) {
+                let pos = pos.clone().swap_turn().unwrap();
+                let score = -self.negamax(&pos, depth - 3, -beta, -beta + 1, ply + 1);
+
+                if score >= beta {
+                    return score;
+                }
+            }
+            /* Reverse Futility Pruning */
+            if !is_pv && depth <= self.config.rfp_depth {
+                let score = static_eval - self.config.rfp_depth_multiplier * depth as i32;
+                if score >= beta {
+                    return static_eval;
+                }
             }
         }
 

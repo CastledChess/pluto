@@ -142,7 +142,9 @@ impl NNUEState {
 
         #[rustfmt::skip]
         self.stack[self.current].white.remove_feature(from_idx.0, &NNUE);
-        self.stack[self.current].black.remove_feature(from_idx.1, &NNUE);
+        self.stack[self.current]
+            .black
+            .remove_feature(from_idx.1, &NNUE);
         self.stack[self.current].white.add_feature(to_idx.0, &NNUE);
         self.stack[self.current].black.add_feature(to_idx.1, &NNUE);
     }
