@@ -46,7 +46,7 @@ pub fn train() {
             batch_size: 16_384,
             batches_per_superbatch: 6104,
             start_superbatch: 1,
-            end_superbatch: 200,
+            end_superbatch: 250,
         },
         wdl_scheduler: wdl::ConstantWDL { value: 0.6 },
         lr_scheduler: lr::StepLR {
@@ -54,7 +54,7 @@ pub fn train() {
             gamma: 0.1,
             step: 10,
         },
-        save_rate: 10,
+        save_rate: 5,
     };
 
     trainer.set_optimiser_params(optimiser::AdamWParams::default());
