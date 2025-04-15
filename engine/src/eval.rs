@@ -5,6 +5,15 @@ use shakmaty::{Chess, Color, Position};
 pub struct Eval {}
 
 impl Eval {
+    pub fn has_pieces(pos: &Chess) -> bool {
+        let material = pos.board().material_side(pos.turn());
+
+        if material.knight > 0 || material.bishop > 0 || material.rook > 0 || material.queen > 0 {
+            return true;
+        }
+
+        false
+    }
     /// Neural Network evaluation using NNUE architecture.
     ///
     /// # Arguments
