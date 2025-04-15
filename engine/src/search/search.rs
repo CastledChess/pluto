@@ -1,3 +1,5 @@
+use std::cmp::max;
+
 use crate::bound::Bound;
 use crate::config::Config;
 use crate::eval::Eval;
@@ -32,8 +34,6 @@ pub struct Search {
     pub time_controller: TimeController,
     /// Neural Network evaluation state
     pub nnue_state: NNUEState,
-    /// Position evaluation component
-    eval: Eval,
     /// Best move found in current iteration
     iteration_move: Move,
     /// Transposition table for storing previously evaluated positions
@@ -209,13 +209,14 @@ impl Search {
         self.pv_table.update_length(ply);
 
         if self.time_controller.is_time_up() {
-            self.info.nodes += 1;
             return 0;
         }
 
         if depth == 0 {
             return self.quiesce(pos, alpha, beta, self.config.qsearch_depth);
         }
+
+        self.info.nodes += 1;
 
         let is_root = ply == 0;
         let position_key = pos.zobrist_hash::<Zobrist64>(EnPassantMode::Legal);
@@ -230,25 +231,22 @@ impl Search {
                 || (entry.bound == Bound::Alpha && entry.score <= alpha)
                 || (entry.bound == Bound::Beta && entry.score >= beta))
         {
-            self.info.nodes += 1;
             return entry.score;
         }
 
         let is_pv = beta - alpha != 1;
-        let static_eval = self.eval.nnue_eval(&self.nnue_state, pos);
+        let static_eval = Eval::nnue_eval(&self.nnue_state, pos);
 
         /* Reverse Futility Pruning */
         if !is_pv && depth <= self.config.rfp_depth && !pos.is_check() {
             let score = static_eval - self.config.rfp_depth_multiplier * depth as i32;
             if score >= beta {
-                self.info.nodes += 1;
                 return static_eval;
             }
         }
 
         /* Threefold Repetition Detection */
         if self.history.iter().filter(|&x| x == &position_key).count() >= 2 {
-            self.info.nodes += 1;
             return 0;
         }
 
@@ -256,7 +254,6 @@ impl Search {
 
         /* Checkmate/Draw Detection */
         if moves.len() == 0 {
-            self.info.nodes += 1;
             return match pos.is_checkmate() {
                 true => -100000 + ply as i32,
                 false => 0,
@@ -274,12 +271,21 @@ impl Search {
             self.make_move_nnue(&mut pos, m);
 
             let mut score: i32;
+            let mut r = 1;
 
+            if depth >= 2 && i >= 1 && !pos.is_check() {
+                r = match m {
+                    m if m.is_capture() || m.is_promotion() => {
+                        max(1, (0.7 + (depth as f64).ln() * (i as f64).ln() / 3.0) as u8)
+                    }
+                    _ => max(1, (0.7 + (depth as f64).ln() * (i as f64).ln() / 2.4) as u8),
+                };
+            }
             /* Principal Variation Search */
             match i {
                 0 => score = -self.negamax(&pos, depth - 1, -beta, -alpha, ply + 1),
                 _ => {
-                    score = -self.negamax(&pos, depth - 1, -alpha - 1, -alpha, ply + 1);
+                    score = -self.negamax(&pos, depth - r, -(alpha + 1), -alpha, ply + 1);
 
                     if score > alpha && beta - alpha > 1 {
                         score = -self.negamax(&pos, depth - 1, -beta, -alpha, ply + 1);
@@ -320,7 +326,6 @@ impl Search {
         self.transposition_table
             .store(position_key, depth, best_score, bound, best_move.clone());
 
-        self.info.nodes += 1;
         best_score
     }
 
@@ -336,7 +341,7 @@ impl Search {
     /// * Static evaluation or tactical sequence evaluation
     fn quiesce(&mut self, pos: &Chess, mut alpha: i32, beta: i32, limit: u8) -> i32 {
         self.info.nodes += 1;
-        let stand_pat = self.eval.nnue_eval(&self.nnue_state, pos);
+        let stand_pat = Eval::nnue_eval(&self.nnue_state, pos);
 
         if limit == 0 {
             return stand_pat;
@@ -433,7 +438,6 @@ impl Search {
         Search {
             mode: UciMode::Web,
             game: Chess::default(),
-            eval: Eval::default(),
             iteration_move: DEFAULT_MOVE.clone(),
             transposition_table: TranspositionTable::new(config.tt_size),
             params: SearchParams::default(),
@@ -456,7 +460,6 @@ impl Default for Search {
         Search {
             mode: UciMode::Native,
             game: Chess::default(),
-            eval: Eval::default(),
             iteration_move: DEFAULT_MOVE.clone(),
             transposition_table: TranspositionTable::new(config.tt_size),
             params: SearchParams::default(),
