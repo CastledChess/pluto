@@ -1,7 +1,7 @@
-use chrono::Local;
-use shakmaty::{Chess, Color, Position};
 use crate::search::search_params::SearchParams;
 use crate::time_control::time_mode::TimeMode;
+use chrono::Local;
+use shakmaty::{Chess, Color, Position};
 
 /// Manages time control for chess engine operations.
 /// Handles different time modes and tracks elapsed time during search.
@@ -11,7 +11,7 @@ pub struct TimeController {
     /// Timestamp when search started
     start_time: i64,
     /// Allocated time for current search in milliseconds
-    play_time: u128,
+    pub play_time: u128,
 }
 
 impl TimeController {
@@ -30,9 +30,9 @@ impl TimeController {
             TimeMode::MoveTime => params.move_time,
             TimeMode::WOrBTime => match game.turn() {
                 Color::White => params.w_time / 30,
-                Color::Black => params.b_time / 30
+                Color::Black => params.b_time / 30,
             },
-            _ => 0
+            _ => 0,
         };
 
         self.start();
@@ -68,3 +68,4 @@ impl Default for TimeController {
         }
     }
 }
+
