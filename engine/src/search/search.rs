@@ -13,6 +13,7 @@ use crate::principal_variation::PvTable;
 use crate::search::search_info::SearchInfo;
 use crate::search::search_params::SearchParams;
 use crate::time_control::time_controller::TimeController;
+use crate::time_control::time_mode::TimeMode;
 use crate::transposition::{TranspositionTable, TranspositionTableEntry};
 use crate::uci::UciMode;
 use shakmaty::zobrist::{Zobrist64, ZobristHash};
@@ -41,7 +42,7 @@ pub struct Search {
     /// Position history for repetition detection
     history: Vec<Zobrist64>,
     /// Engine configuration settings
-    config: Config,
+    pub config: Config,
     /// Principal Variation table for storing best lines
     pv_table: PvTable,
     killer_moves: Vec<Vec<Option<Move>>>,
@@ -160,6 +161,12 @@ impl Search {
 
         /* Iterative deepening */
         for current_depth in 0..self.params.depth {
+            if TimeMode::is_finite(&self.time_controller.time_mode)
+                && (self.time_controller.elapsed() * 2) as u128 > self.time_controller.play_time
+            {
+                break;
+            }
+
             self.info.depth = current_depth + 1;
             let pos = self.game.clone();
             let iteration_score = self.negamax(&pos, self.info.depth, -100000, 100000, 0);
