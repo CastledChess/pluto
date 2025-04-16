@@ -1,14 +1,14 @@
 use shakmaty::{Board, Piece, Square};
 
 pub const FEATURES: usize = 768;
-pub const HIDDEN: usize = 1024;
+pub const HIDDEN: usize = 2048;
 pub const QA: i16 = 255;
 pub const QAB: i16 = 255 * 64;
 pub const SCALE: i32 = 400;
 
 pub static NNUE: Network = unsafe {
     std::mem::transmute(*include_bytes!(
-        "../../../bin/(768-1024)x2-1_screlu-250.bin"
+        "../../../bin/(768-2048)x2-1_screlu-50.bin"
     ))
 };
 
@@ -45,27 +45,16 @@ impl Network {
     /// Calculates the output of the network, starting from the already
     /// calculated hidden layer (done efficiently during makemoves).
     pub fn evaluate(&self, us: &Accumulator, them: &Accumulator) -> i32 {
-        // Initialise output with bias.
         let mut output = i32::from(self.output_bias);
 
-        // Side-To-Move Accumulator -> Output.
         for (&input, &weight) in us.vals.iter().zip(&self.output_weights[..HIDDEN]) {
             output += screlu(input) * i32::from(weight);
         }
 
-        // Not-Side-To-Move Accumulator -> Output.
         for (&input, &weight) in them.vals.iter().zip(&self.output_weights[HIDDEN..]) {
             output += screlu(input) * i32::from(weight);
         }
-        //
-        // // Apply eval scale.
-        // output *= SCALE;
-        //
-        // // Remove quantisation.
-        // output /= i32::from(QA) * i32::from(QB);
-        //
-        // output
-        //
+
         (output / QA as i32 + NNUE.output_bias as i32) * SCALE / QAB as i32
     }
 }
@@ -154,9 +143,7 @@ impl NNUEState {
 
         #[rustfmt::skip]
         self.stack[self.current].white.remove_feature(from_idx.0, &NNUE);
-        self.stack[self.current]
-            .black
-            .remove_feature(from_idx.1, &NNUE);
+        self.stack[self.current].black.remove_feature(from_idx.1, &NNUE);
         self.stack[self.current].white.add_feature(to_idx.0, &NNUE);
         self.stack[self.current].black.add_feature(to_idx.1, &NNUE);
     }
