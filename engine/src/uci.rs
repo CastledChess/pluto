@@ -6,6 +6,7 @@ use crate::nnue::NNUEState;
 use crate::postMessage;
 use crate::search::search::Search;
 use crate::time_control::time_mode::TimeMode;
+use crate::transposition::TranspositionTable;
 use chrono::Local;
 use queues::{queue, IsQueue, Queue};
 use shakmaty::fen::Fen;
@@ -62,7 +63,64 @@ impl Default for UciController {
         UciController {
             mode: UciMode::Native,
             search: Search::default(),
-            options: vec![],
+            options: vec![
+                UciOption {
+                    name: "Threads".to_string(),
+                    default: "1".to_string(),
+                    option_type: UciOptionType::Spin,
+                    min: 1,
+                    max: 1,
+                },
+                UciOption {
+                    name: "Hash".to_string(),
+                    default: "200".to_string(),
+                    option_type: UciOptionType::Spin,
+                    min: 0,
+                    max: 1024,
+                },
+                UciOption {
+                    name: "QSearchDepth".to_string(),
+                    default: "2".to_string(),
+                    option_type: UciOptionType::Spin,
+                    min: 0,
+                    max: 10,
+                },
+                UciOption {
+                    name: "RFPDepth".to_string(),
+                    default: "7".to_string(),
+                    option_type: UciOptionType::Spin,
+                    min: 1,
+                    max: 10,
+                },
+                UciOption {
+                    name: "RFPDepthMultiplier".to_string(),
+                    default: "50".to_string(),
+                    option_type: UciOptionType::Spin,
+                    min: 0,
+                    max: 100,
+                },
+                UciOption {
+                    name: "MOTTEntryValue".to_string(),
+                    default: "200".to_string(),
+                    option_type: UciOptionType::Spin,
+                    min: 50,
+                    max: 350,
+                },
+                UciOption {
+                    name: "MOCaptureValue".to_string(),
+                    default: "50".to_string(),
+                    option_type: UciOptionType::Spin,
+                    min: 10,
+                    max: 100,
+                },
+                UciOption {
+                    name: "MOKillerMoveValue".to_string(),
+                    default: "100".to_string(),
+                    option_type: UciOptionType::Spin,
+                    min: 50,
+                    max: 200,
+                },
+            ],
         }
     }
 }
@@ -280,12 +338,12 @@ impl UciController {
     fn handle_position_startpos(&mut self, tokens: &mut Queue<&str>) {
         self.search.game = Chess::default();
 
-        if let Some(moves) = tokens.remove().ok() {
+        if let Ok(moves) = tokens.remove() {
             if moves != "moves" {
                 return;
             }
 
-            while let Some(move_str) = tokens.remove().ok() {
+            while let Ok(move_str) = tokens.remove() {
                 let uci_move = move_str.parse::<UciMove>().ok();
                 let game = self.search.game.clone();
                 let legal = uci_move.unwrap().to_move(&game).ok().unwrap();
@@ -293,7 +351,7 @@ impl UciController {
             }
         }
 
-        self.search.nnue_state = NNUEState::from_board(&self.search.game.board());
+        self.search.nnue_state = NNUEState::from_board(self.search.game.board());
     }
 
     /// Sets up a position from FEN string and applies moves.
@@ -324,7 +382,7 @@ impl UciController {
         self.search.game = fen.into_position(CastlingMode::Standard).ok().unwrap();
 
         if token == "moves" {
-            while let Some(move_str) = tokens.remove().ok() {
+            while let Ok(move_str) = tokens.remove() {
                 let uci_move = move_str.parse::<UciMove>().ok();
                 let game = self.search.game.clone();
                 let legal = uci_move.unwrap().to_move(&game).ok().unwrap();
@@ -332,14 +390,18 @@ impl UciController {
             }
         }
 
-        self.search.nnue_state = NNUEState::from_board(&self.search.game.board());
+        self.search.nnue_state = NNUEState::from_board(self.search.game.board());
     }
 
     /// Processes option setting commands.
     ///
     /// # Arguments
     /// * `tokens` - Queue containing option name and value
-    fn handle_setoption(&self, tokens: &mut Queue<&str>) {
+    fn handle_setoption(&mut self, tokens: &mut Queue<&str>) {
+        if tokens.size() < 4 {
+            return;
+        }
+
         tokens.remove().unwrap(); // name
         let name = tokens.remove().unwrap();
         tokens.remove().unwrap(); // value
@@ -351,9 +413,27 @@ impl UciController {
 
         match name {
             // TODO: Implement option handling
-            "MoveOverhead" => self.log(&format!("info string set move overhead")),
-            "Threads" => self.log(&format!("info string set threads")),
-            "Hash" => self.log(&format!("info string set hash")),
+            "MoveOverhead" => self.log("info string set move overhead"),
+            "Threads" => self.log("info string set threads"),
+            "Hash" => {
+                let size = value.parse::<u32>().unwrap();
+                let bytes = size * 1024 * 1024;
+                let entries = bytes / 24; // 24 is the actual size of one entry
+
+                self.search.transposition_table = TranspositionTable::new(entries as usize);
+            }
+            "QSearchDepth" => self.search.config.qsearch_depth = value.parse::<u8>().unwrap(),
+            "RFPDepth" => self.search.config.rfp_depth = value.parse::<u8>().unwrap(),
+            "RFPDepthMultiplier" => {
+                self.search.config.rfp_depth_multiplier = value.parse::<i32>().unwrap()
+            }
+            "MOTTEntryValue" => {
+                self.search.config.mo_tt_entry_value = value.parse::<i32>().unwrap()
+            }
+            "MOCaptureValue" => self.search.config.mo_capture_value = value.parse::<i32>().unwrap(),
+            "MOKillerMoveValue" => {
+                self.search.config.mo_killer_move_value = value.parse::<i32>().unwrap()
+            }
             _ => self.log(&format!("info string unknown option: {}", name)),
         }
     }
@@ -376,7 +456,7 @@ impl UciController {
 
     /// Responds to isready command.
     fn handle_isready(&self) {
-        self.log(&format!("readyok"));
+        self.log("readyok");
     }
 
     /// Handles quit command by exiting the program.
@@ -386,8 +466,8 @@ impl UciController {
 
     /// Sends engine identification and available options.
     fn handle_uci(&self) {
-        self.log(&format!("id name Pluto"));
-        self.log(&format!("id author CastledChess"));
+        self.log(r#"id name Pluto"#);
+        self.log(r#"id author CastledChess"#);
 
         for option in &self.options {
             let type_str = match option.option_type {
@@ -403,5 +483,7 @@ impl UciController {
                 option.name, type_str, option.default, option.min, option.max
             ));
         }
+
+        self.log(r#"uciok"#);
     }
 }

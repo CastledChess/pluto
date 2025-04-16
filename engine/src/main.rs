@@ -1,13 +1,13 @@
 //! CastledEngine - A UCI chess engine implementation in Rust.
 //! Main entry point and module declarations.
 
-use crate::uci::{UciController};
+use crate::uci::UciController;
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 use std::cell::RefCell;
+use std::process::exit;
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 use std::rc::Rc;
 use std::{env, io, thread};
-use std::process::exit;
 use wasm_bindgen::prelude::*;
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 use web_sys::Worker;
@@ -32,9 +32,11 @@ pub fn main() {
     let (tx, rx) = mpsc::channel::<String>();
 
     let handle = thread::Builder::new()
-        .stack_size(8 * 1024 * 1024)// 8MB stack size
+        .stack_size(8 * 1024 * 1024) // 8MB stack size
         .spawn(move || {
             let mut uci_controller = UciController::default();
+
+            uci_controller.parse_command("uci");
 
             while let Ok(command) = rx.recv() {
                 uci_controller.parse_command(&command);
@@ -49,10 +51,6 @@ pub fn main() {
         handle.join().unwrap();
         exit(0);
     }
-
-    println!("id name Pluto");
-    println!("id author CastledChess");
-    println!("uciok");
 
     let mut input = String::new();
 
@@ -73,9 +71,9 @@ pub fn main() {
     handle.join().unwrap();
 }
 
+use std::sync::mpsc;
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 use std::sync::{LazyLock, Mutex};
-use std::sync::mpsc;
 
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 static UCI: LazyLock<Mutex<UciController>> = LazyLock::new(|| Mutex::new(UciController::web()));

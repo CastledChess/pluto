@@ -60,4 +60,3 @@ impl Config {
         Ok(data.config)
     }
 }
-

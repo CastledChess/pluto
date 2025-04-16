@@ -42,7 +42,7 @@ pub struct Search {
     /// Position history for repetition detection
     history: Vec<Zobrist64>,
     /// Engine configuration settings
-    config: Config,
+    pub config: Config,
     /// Principal Variation table for storing best lines
     pv_table: PvTable,
     killer_moves: Vec<Vec<Option<Move>>>,
