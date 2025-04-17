@@ -247,14 +247,16 @@ impl Search {
 
         if !is_check {
             /* Null Move Pruning */
-            if depth >= 3 && ply > 0 && Eval::has_pieces(pos) {
+            if depth > 3 && !is_pv && ply > 0 && Eval::has_pieces(pos) {
+                let r = (4 + depth / 4).min(depth);
                 let pos = pos.clone().swap_turn().unwrap();
-                let score = -self.negamax(&pos, depth - 3, -beta, -beta + 1, ply + 1);
+                let score = -self.negamax(&pos, depth - r, -beta, -beta + 1, ply + 1);
 
                 if score >= beta {
                     return score;
                 }
             }
+
             /* Reverse Futility Pruning */
             if !is_pv && depth <= self.config.rfp_depth {
                 let score = static_eval - self.config.rfp_depth_multiplier * depth as i32;
@@ -272,7 +274,7 @@ impl Search {
         let moves = pos.legal_moves();
 
         /* Checkmate/Draw Detection */
-        if moves.len() == 0 {
+        if moves.is_empty() {
             return match pos.is_checkmate() {
                 true => -100000 + ply as i32,
                 false => 0,
@@ -431,8 +433,8 @@ impl Search {
         mut moves: MoveList,
     ) -> MoveList {
         moves.sort_by(|a, b| {
-            let a_score = self.move_importance(&entry, ply, &a);
-            let b_score = self.move_importance(&entry, ply, &b);
+            let a_score = self.move_importance(&entry, ply, a);
+            let b_score = self.move_importance(&entry, ply, b);
 
             b_score.cmp(&a_score)
         });
