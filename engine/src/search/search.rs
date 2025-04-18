@@ -322,13 +322,11 @@ impl Search {
                     // Storing PV search Line
                     self.pv_table.store(ply, best_move.clone());
                     alpha = best_score;
+                }
 
-                    if alpha >= beta {
-                        if ply < self.config.max_depth_killer_moves {
-                            self.add_killer_move(ply, m.clone());
-                        }
-                        break;
-                    }
+                if alpha >= beta {
+                    self.add_killer_move(ply, m.clone());
+                    break;
                 }
             }
         }

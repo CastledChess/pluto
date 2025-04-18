@@ -72,4 +72,3 @@ impl PvTable {
         self.table[0][0].clone()
     }
 }
-
