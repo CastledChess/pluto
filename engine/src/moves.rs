@@ -11,3 +11,4 @@ pub(crate) static DEFAULT_MOVE: Move = Move::Normal {
     promotion: None,
     capture: None,
 };
+

@@ -35,8 +35,6 @@ pub struct Search {
     pub time_controller: TimeController,
     /// Neural Network evaluation state
     pub nnue_state: NNUEState,
-    /// Best move found in current iteration
-    iteration_move: Move,
     /// Transposition table for storing previously evaluated positions
     pub transposition_table: TranspositionTable,
     /// Position history for repetition detection
@@ -175,7 +173,7 @@ impl Search {
                 break;
             }
 
-            best_move = self.pv_table.get_best_move();
+            best_move = self.pv_table.get_best_move().unwrap();
 
             let elapsed = self.time_controller.elapsed();
             let pv = self.pv_table.collect();
@@ -320,11 +318,8 @@ impl Search {
                 best_score = score;
                 best_move = m;
 
-                if is_root {
-                    self.iteration_move = best_move.clone();
-                }
                 if best_score > alpha {
-                    // Stocking PV search Line
+                    // Storing PV search Line
                     self.pv_table.store(ply, best_move.clone());
                     alpha = best_score;
 
@@ -459,7 +454,6 @@ impl Search {
         Search {
             mode: UciMode::Web,
             game: Chess::default(),
-            iteration_move: DEFAULT_MOVE.clone(),
             transposition_table: TranspositionTable::new(config.tt_size),
             params: SearchParams::default(),
             info: SearchInfo::default(),
@@ -481,7 +475,6 @@ impl Default for Search {
         Search {
             mode: UciMode::Native,
             game: Chess::default(),
-            iteration_move: DEFAULT_MOVE.clone(),
             transposition_table: TranspositionTable::new(config.tt_size),
             params: SearchParams::default(),
             info: SearchInfo::default(),

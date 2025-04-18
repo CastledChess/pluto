@@ -7,19 +7,20 @@ use shakmaty::zobrist::Zobrist64;
 use shakmaty::Move;
 
 /// Entry in the transposition table storing information about a previously evaluated position.
+#[repr(C, align(8))]
 pub struct TranspositionTableEntry {
     /// Zobrist hash key of the position
     pub key: Zobrist64,
-    /// Depth at which the position was evaluated
-    pub depth: u8,
     /// Evaluation score of the position
     pub score: i32,
+    /// Depth at which the position was evaluated
+    pub depth: u8,
+    /// Generation number to track entry age
+    pub generation: u8,
     /// Type of score bound (exact, alpha, or beta)
     pub bound: Bound,
     /// Best move found at this position
     pub _move: Move,
-    /// Generation number to track entry age
-    pub generation: u8,
 }
 
 /// Hash table storing evaluated chess positions for move ordering and pruning.
@@ -123,3 +124,4 @@ impl Default for TranspositionTableEntry {
         }
     }
 }
+
