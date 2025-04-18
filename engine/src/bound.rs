@@ -2,13 +2,14 @@
 /// Used in transposition table entries to determine the reliability
 /// and type of stored position scores.
 #[derive(Debug)]
+#[repr(u8)]
 pub enum Bound {
     /// Exact score - The stored value is precise
-    Exact,
+    Exact = 0,
     /// Beta bound - The true score is at least as good as the stored value
-    Beta,
+    Beta = 1,
     /// Alpha bound - The true score is at most as good as the stored value
-    Alpha,
+    Alpha = 2,
 }
 
 /// Implements cloning functionality for Bound enum
@@ -46,4 +47,3 @@ impl PartialEq for Bound {
         )
     }
 }
-
