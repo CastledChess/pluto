@@ -1,10 +1,10 @@
 [config]
-qsearch_depth = 2
-rfp_depth = 7
-rfp_depth_multiplier = 50
+qsearch_depth = 5
+rfp_depth = 4
+rfp_depth_multiplier = 56
 tt_size = 0x7FFFFF
-mo_tt_entry_value = 200
-mo_capture_value = 50
-mo_killer_move_value = 100
+mo_tt_entry_value = 228
+mo_capture_value = 48
+mo_killer_move_value = 80
 max_depth_killer_moves = 64
 nb_killer_moves = 2
