@@ -239,8 +239,26 @@ impl Search {
             return entry.score;
         }
 
-        let is_pv = beta - alpha != 1;
         let static_eval = Eval::nnue_eval(&self.nnue_state, pos);
+
+        if ply > 0
+            && self
+                .history
+                .iter()
+                .rev()
+                .skip(1)
+                .filter(|&&h| h == position_key)
+                .count()
+                >= 2
+        {
+            return match static_eval {
+                eval if eval >= 100 => -50,
+                eval if eval <= -100 => 50,
+                _ => 0,
+            };
+        }
+
+        let is_pv = beta - alpha != 1;
         let is_check = pos.is_check();
 
         if !is_check {
@@ -262,11 +280,6 @@ impl Search {
                     return static_eval;
                 }
             }
-        }
-
-        /* Threefold Repetition Detection */
-        if self.history.iter().filter(|&x| x == &position_key).count() >= 2 {
-            return 0;
         }
 
         let moves = pos.legal_moves();
