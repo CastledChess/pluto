@@ -11,6 +11,7 @@ use chrono::Local;
 use queues::{queue, IsQueue, Queue};
 use shakmaty::fen::Fen;
 use shakmaty::uci::UciMove;
+use shakmaty::zobrist::ZobristHash;
 use shakmaty::{CastlingMode, Chess, Position};
 
 pub enum UciMode {
@@ -337,6 +338,7 @@ impl UciController {
     /// * `tokens` - Queue containing moves to apply
     fn handle_position_startpos(&mut self, tokens: &mut Queue<&str>) {
         self.search.game = Chess::default();
+        self.search.history.clear();
 
         if let Ok(moves) = tokens.remove() {
             if moves != "moves" {
@@ -347,7 +349,13 @@ impl UciController {
                 let uci_move = move_str.parse::<UciMove>().ok();
                 let game = self.search.game.clone();
                 let legal = uci_move.unwrap().to_move(&game).ok().unwrap();
+
                 self.search.game = game.play(&legal).unwrap();
+                self.search.history.push(
+                    self.search
+                        .game
+                        .zobrist_hash(shakmaty::EnPassantMode::Legal),
+                )
             }
         }
 
@@ -380,6 +388,7 @@ impl UciController {
         let fen: Fen = fen_vec.join(" ").as_str().parse().ok().unwrap();
 
         self.search.game = fen.into_position(CastlingMode::Standard).ok().unwrap();
+        self.search.history.clear();
 
         if token == "moves" {
             while let Ok(move_str) = tokens.remove() {
@@ -387,6 +396,11 @@ impl UciController {
                 let game = self.search.game.clone();
                 let legal = uci_move.unwrap().to_move(&game).ok().unwrap();
                 self.search.game = game.play(&legal).unwrap();
+                self.search.history.push(
+                    self.search
+                        .game
+                        .zobrist_hash(shakmaty::EnPassantMode::Legal),
+                )
             }
         }
 

@@ -38,7 +38,7 @@ pub struct Search {
     /// Transposition table for storing previously evaluated positions
     pub transposition_table: TranspositionTable,
     /// Position history for repetition detection
-    history: Vec<Zobrist64>,
+    pub history: Vec<Zobrist64>,
     /// Engine configuration settings
     pub config: Config,
     /// Principal Variation table for storing best lines
@@ -249,13 +249,9 @@ impl Search {
                 .skip(1)
                 .filter(|&&h| h == position_key)
                 .count()
-                >= 2
+                >= 1
         {
-            return match static_eval {
-                eval if eval >= 100 => -50,
-                eval if eval <= -100 => 50,
-                _ => 0,
-            };
+            return 0;
         }
 
         let is_pv = beta - alpha != 1;
