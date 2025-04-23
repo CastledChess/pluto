@@ -1,15 +1,18 @@
+pub mod info;
+pub mod killers;
+pub mod params;
+pub mod pv;
 pub mod search;
-pub mod search_info;
-pub mod search_params;
+pub mod tt;
 
-use search_info::SearchInfo;
-use search_params::SearchParams;
-use shakmaty::{zobrist::Zobrist64, Chess, Move, Position};
+use info::SearchInfo;
+use killers::Killers;
+use params::SearchParams;
+use pv::PvTable;
+use shakmaty::{zobrist::Zobrist64, Chess, Position};
+use tt::TranspositionTable;
 
-use crate::{
-    config::Config, nnue::NNUEState, principal_variation::PvTable,
-    time_control::time_controller::TimeController, transposition::TranspositionTable,
-};
+use crate::{config::Config, nnue::NNUEState, time_control::time_controller::TimeController};
 
 pub struct SearchState {
     pub game: Chess,
@@ -21,7 +24,7 @@ pub struct SearchState {
     pub history: Vec<Zobrist64>,
     pub cfg: Config,
     pub pv: PvTable,
-    pub km: Vec<Vec<Option<Move>>>,
+    pub km: Killers,
 }
 
 impl SearchState {
@@ -37,7 +40,7 @@ impl SearchState {
             nnue: NNUEState::from_board(Chess::default().board()),
             history: Vec::new(),
             pv: PvTable::default(),
-            km: vec![vec![None; cfg.nb_killer_moves]; cfg.max_depth_killer_moves],
+            km: Killers::new(),
             cfg,
         }
     }

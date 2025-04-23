@@ -1,4 +1,4 @@
-use crate::search::search_params::SearchParams;
+use crate::search::params::SearchParams;
 use crate::time_control::time_mode::TimeMode;
 use chrono::Local;
 use shakmaty::{Chess, Color, Position};
