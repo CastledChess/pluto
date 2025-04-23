@@ -15,6 +15,7 @@ use web_sys::Worker;
 mod bound; // Position score bound types
 mod config; // Engine configuration settings
 mod eval; // Position evaluation
+mod logger;
 mod moves; // Move generation and handling
 mod nnue; // Neural Network evaluation
 mod principal_variation; // Best move line tracking
@@ -76,7 +77,7 @@ use std::sync::mpsc;
 use std::sync::{LazyLock, Mutex};
 
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
-static UCI: LazyLock<Mutex<UciController>> = LazyLock::new(|| Mutex::new(UciController::web()));
+static UCI: LazyLock<Mutex<UciController>> = LazyLock::new(|| Mutex::new(UciController::default()));
 
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 #[wasm_bindgen]

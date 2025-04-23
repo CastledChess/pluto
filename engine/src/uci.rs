@@ -1,6 +1,7 @@
 //! UCI (Universal Chess Interface) protocol implementation module.
 //! Handles communication between the chess engine and UCI-compatible chess GUIs.
 
+use crate::logger::Logger;
 use crate::nnue::NNUEState;
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 use crate::postMessage;
@@ -12,12 +13,6 @@ use queues::{queue, IsQueue, Queue};
 use shakmaty::fen::Fen;
 use shakmaty::uci::UciMove;
 use shakmaty::{CastlingMode, Chess, Position};
-
-pub enum UciMode {
-    Native,
-    #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
-    Web,
-}
 
 /// UCI option types supported by the engine.
 #[allow(dead_code)]
@@ -50,9 +45,7 @@ struct UciOption {
 
 /// Main UCI protocol handler implementing the Universal Chess Interface.
 pub struct UciController {
-    pub mode: UciMode,
-    /// Search engine instance for position evaluation
-    pub search: Search,
+    search: Search,
     /// Available configuration options for the engine
     options: Vec<UciOption>,
 }
@@ -61,8 +54,7 @@ impl Default for UciController {
     /// Creates a new UCI instance with default settings.
     fn default() -> UciController {
         UciController {
-            mode: UciMode::Native,
-            search: Search::default(),
+            search: Search::new(),
             options: vec![
                 UciOption {
                     name: "Threads".to_string(),
@@ -79,7 +71,7 @@ impl Default for UciController {
                     max: 1024,
                 },
                 UciOption {
-                    name: "QSearchDepth".to_string(),
+                    name: "Qself.search.state.epth".to_string(),
                     default: "2".to_string(),
                     option_type: UciOptionType::Spin,
                     min: 0,
@@ -126,24 +118,6 @@ impl Default for UciController {
 }
 
 impl UciController {
-    /// Creates a new UCI instance for web-based GUIs.
-    #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
-    pub fn web() -> UciController {
-        UciController {
-            mode: UciMode::Web,
-            search: Search::web(),
-            options: vec![],
-        }
-    }
-
-    fn log(&self, message: &str) {
-        match self.mode {
-            UciMode::Native => println!("{}", message),
-            #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
-            UciMode::Web => postMessage(message),
-        }
-    }
-
     /// Parses a UCI command string and processes it.
     ///
     /// # Arguments
@@ -175,12 +149,12 @@ impl UciController {
             "ucinewgame" => self.handle_ucinewgame(),
             "position" => self.handle_position(tokens),
             "go" => self.handle_go(tokens),
-            _ => self.log(&format!("Unknown command: {}", first_token)),
+            _ => Logger::log(&format!("Unknown command: {}", first_token)),
         }
     }
 
     fn handle_bench(&mut self) {
-        self.search.transposition_table.clear();
+        self.search.state.tt.clear();
 
         let positions = vec![
             "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - ",
@@ -197,13 +171,13 @@ impl UciController {
             let fen: Fen = position.parse().ok().unwrap();
             let game = fen.into_position(CastlingMode::Standard).ok().unwrap();
 
-            self.search.game = game;
-            self.search.params.depth = 5;
-            self.search.time_controller.time_mode = TimeMode::Infinite;
+            self.search.state.game = game;
+            self.search.state.params.depth = 5;
+            self.search.state.tc.time_mode = TimeMode::Infinite;
 
             self.search.go(false);
 
-            total += self.search.info.nodes;
+            total += self.search.state.info.nodes;
         }
         let elapsed = Local::now().timestamp_millis() - start_time;
 
@@ -214,10 +188,10 @@ impl UciController {
         );
     }
 
-    /// Handles the 'go' command with various search parameters.
+    /// Handles the 'go' command with various self.search.state.parameters.
     ///
     /// # Arguments
-    /// * `tokens` - Queue containing search parameters
+    /// * `tokens` - Queue containing self.search.state.parameters
     fn handle_go(&mut self, tokens: &mut Queue<&str>) {
         let token = tokens.remove();
 
@@ -230,7 +204,7 @@ impl UciController {
                 "depth" => self.handle_go_depth(tokens),
                 "movetime" => self.handle_go_movetime(tokens),
                 "infinite" => self.handle_go_infinite(tokens),
-                _ => self.log(&format!("Unknown go command: {}", token.unwrap())),
+                _ => Logger::log(&format!("Unknown go command: {}", token.unwrap())),
             },
             false => {
                 self.search.go(true);
@@ -264,9 +238,9 @@ impl UciController {
         let token = tokens.remove().unwrap();
         let time = token.parse::<u128>().unwrap();
 
-        self.search.params.depth = u8::MAX;
-        self.search.time_controller.time_mode = TimeMode::WOrBTime;
-        self.search.params.b_time = time;
+        self.search.state.params.depth = u8::MAX;
+        self.search.state.tc.time_mode = TimeMode::WOrBTime;
+        self.search.state.params.b_time = time;
 
         self.handle_go(tokens);
     }
@@ -279,14 +253,14 @@ impl UciController {
         let token = tokens.remove().unwrap();
         let time = token.parse::<u128>().unwrap();
 
-        self.search.params.depth = u8::MAX;
-        self.search.time_controller.time_mode = TimeMode::WOrBTime;
-        self.search.params.w_time = time;
+        self.search.state.params.depth = u8::MAX;
+        self.search.state.tc.time_mode = TimeMode::WOrBTime;
+        self.search.state.params.w_time = time;
 
         self.handle_go(tokens);
     }
 
-    /// Sets up search with fixed depth.
+    /// Sets up self.search.state.with fixed depth.
     ///
     /// # Arguments
     /// * `tokens` - Queue containing depth value in plies
@@ -294,13 +268,13 @@ impl UciController {
         let token = tokens.remove().unwrap();
         let depth = token.parse::<u8>().unwrap();
 
-        self.search.params.depth = depth;
-        self.search.time_controller.time_mode = TimeMode::Infinite;
+        self.search.state.params.depth = depth;
+        self.search.state.tc.time_mode = TimeMode::Infinite;
 
         self.handle_go(tokens);
     }
 
-    /// Sets up search with fixed time per move.
+    /// Sets up self.search.state.with fixed time per move.
     ///
     /// # Arguments
     /// * `tokens` - Queue containing time value in milliseconds
@@ -308,9 +282,9 @@ impl UciController {
         let token = tokens.remove().unwrap();
         let time = token.parse::<u128>().unwrap();
 
-        self.search.params.move_time = time;
-        self.search.time_controller.time_mode = TimeMode::MoveTime;
-        self.search.params.depth = u8::MAX;
+        self.search.state.params.move_time = time;
+        self.search.state.tc.time_mode = TimeMode::MoveTime;
+        self.search.state.params.depth = u8::MAX;
 
         self.handle_go(tokens);
     }
@@ -327,7 +301,7 @@ impl UciController {
                 self.handle_position_startpos(tokens);
             }
             "fen" => self.handle_position_fen(tokens),
-            _ => self.log(&format!("Unknown position command: {}", token)),
+            _ => Logger::log(&format!("Unknown position command: {}", token)),
         }
     }
 
@@ -336,7 +310,7 @@ impl UciController {
     /// # Arguments
     /// * `tokens` - Queue containing moves to apply
     fn handle_position_startpos(&mut self, tokens: &mut Queue<&str>) {
-        self.search.game = Chess::default();
+        self.search.state.game = Chess::default();
 
         if let Ok(moves) = tokens.remove() {
             if moves != "moves" {
@@ -345,13 +319,13 @@ impl UciController {
 
             while let Ok(move_str) = tokens.remove() {
                 let uci_move = move_str.parse::<UciMove>().ok();
-                let game = self.search.game.clone();
+                let game = self.search.state.game.clone();
                 let legal = uci_move.unwrap().to_move(&game).ok().unwrap();
-                self.search.game = game.play(&legal).unwrap();
+                self.search.state.game = game.play(&legal).unwrap();
             }
         }
 
-        self.search.nnue_state = NNUEState::from_board(self.search.game.board());
+        self.search.state.nnue = NNUEState::from_board(self.search.state.game.board());
     }
 
     /// Sets up a position from FEN string and applies moves.
@@ -379,18 +353,18 @@ impl UciController {
 
         let fen: Fen = fen_vec.join(" ").as_str().parse().ok().unwrap();
 
-        self.search.game = fen.into_position(CastlingMode::Standard).ok().unwrap();
+        self.search.state.game = fen.into_position(CastlingMode::Standard).ok().unwrap();
 
         if token == "moves" {
             while let Ok(move_str) = tokens.remove() {
                 let uci_move = move_str.parse::<UciMove>().ok();
-                let game = self.search.game.clone();
+                let game = self.search.state.game.clone();
                 let legal = uci_move.unwrap().to_move(&game).ok().unwrap();
-                self.search.game = game.play(&legal).unwrap();
+                self.search.state.game = game.play(&legal).unwrap();
             }
         }
 
-        self.search.nnue_state = NNUEState::from_board(self.search.game.board());
+        self.search.state.nnue = NNUEState::from_board(self.search.state.game.board());
     }
 
     /// Processes option setting commands.
@@ -413,50 +387,54 @@ impl UciController {
 
         match name {
             // TODO: Implement option handling
-            "MoveOverhead" => self.log("info string set move overhead"),
-            "Threads" => self.log("info string set threads"),
+            "MoveOverhead" => Logger::log("info string set move overhead"),
+            "Threads" => Logger::log("info string set threads"),
             "Hash" => {
                 let size = value.parse::<u32>().unwrap();
                 let bytes = size * 1024 * 1024;
                 let entries = bytes / 24; // 24 is the actual size of one entry
 
-                self.search.transposition_table = TranspositionTable::new(entries as usize);
+                self.search.state.tt = TranspositionTable::new(entries as usize);
             }
-            "QSearchDepth" => self.search.config.qsearch_depth = value.parse::<u8>().unwrap(),
-            "RFPDepth" => self.search.config.rfp_depth = value.parse::<u8>().unwrap(),
+            "Qself.search.state.epth" => {
+                self.search.state.cfg.qsearch_depth = value.parse::<u8>().unwrap()
+            }
+            "RFPDepth" => self.search.state.cfg.rfp_depth = value.parse::<u8>().unwrap(),
             "RFPDepthMultiplier" => {
-                self.search.config.rfp_depth_multiplier = value.parse::<i32>().unwrap()
+                self.search.state.cfg.rfp_depth_multiplier = value.parse::<i32>().unwrap()
             }
             "MOTTEntryValue" => {
-                self.search.config.mo_tt_entry_value = value.parse::<i32>().unwrap()
+                self.search.state.cfg.mo_tt_entry_value = value.parse::<i32>().unwrap()
             }
-            "MOCaptureValue" => self.search.config.mo_capture_value = value.parse::<i32>().unwrap(),
+            "MOCaptureValue" => {
+                self.search.state.cfg.mo_capture_value = value.parse::<i32>().unwrap()
+            }
             "MOKillerMoveValue" => {
-                self.search.config.mo_killer_move_value = value.parse::<i32>().unwrap()
+                self.search.state.cfg.mo_killer_move_value = value.parse::<i32>().unwrap()
             }
-            _ => self.log(&format!("info string unknown option: {}", name)),
+            _ => Logger::log(&format!("info string unknown option: {}", name)),
         }
     }
 
-    /// Sets up infinite search mode.
+    /// Sets up infinite self.search.state.mode.
     ///
     /// # Arguments
     /// * `tokens` - Queue of remaining tokens to process
     fn handle_go_infinite(&mut self, tokens: &mut Queue<&str>) {
-        self.search.params.depth = u8::MAX;
-        self.search.time_controller.time_mode = TimeMode::Infinite;
+        self.search.state.params.depth = u8::MAX;
+        self.search.state.tc.time_mode = TimeMode::Infinite;
 
         self.handle_go(tokens);
     }
 
     /// Resets the game to initial position.
     fn handle_ucinewgame(&mut self) {
-        self.search.game = Chess::default();
+        self.search.state.game = Chess::default();
     }
 
     /// Responds to isready command.
     fn handle_isready(&self) {
-        self.log("readyok");
+        Logger::log("readyok");
     }
 
     /// Handles quit command by exiting the program.
@@ -466,8 +444,8 @@ impl UciController {
 
     /// Sends engine identification and available options.
     fn handle_uci(&self) {
-        self.log(r#"id name Pluto"#);
-        self.log(r#"id author CastledChess"#);
+        Logger::log(r#"id name Pluto"#);
+        Logger::log(r#"id author CastledChess"#);
 
         for option in &self.options {
             let type_str = match option.option_type {
@@ -478,12 +456,12 @@ impl UciController {
                 UciOptionType::String => "string",
             };
 
-            self.log(&format!(
+            Logger::log(&format!(
                 "option name {} type {} default {} min {} max {}",
                 option.name, type_str, option.default, option.min, option.max
             ));
         }
 
-        self.log(r#"uciok"#);
+        Logger::log(r#"uciok"#);
     }
 }
