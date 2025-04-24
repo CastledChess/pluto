@@ -17,10 +17,8 @@ mod eval; // Position evaluation
 mod logger;
 mod moves; // Move generation and handling
 mod nnue; // Neural Network evaluation
-mod principal_variation; // Best move line tracking
 mod search; // Search algorithm implementation
 mod time_control; // Time management
-mod transposition; // Transposition table for position caching
 mod uci; // Universal Chess Interface protocol
 
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]

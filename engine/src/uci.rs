@@ -6,8 +6,8 @@ use crate::nnue::NNUEState;
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 use crate::postMessage;
 use crate::search::search::Search;
+use crate::search::tt::TranspositionTable;
 use crate::time_control::time_mode::TimeMode;
-use crate::transposition::TranspositionTable;
 use chrono::Local;
 use queues::{queue, IsQueue, Queue};
 use shakmaty::fen::Fen;

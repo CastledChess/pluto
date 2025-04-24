@@ -7,12 +7,12 @@ use crate::moves::DEFAULT_MOVE;
 use crate::nnue::OFF;
 use crate::nnue::ON;
 use crate::time_control::time_mode::TimeMode;
-use crate::transposition::TranspositionTableEntry;
 use shakmaty::zobrist::{Zobrist64, ZobristHash};
 use shakmaty::{
     CastlingMode, CastlingSide, Chess, EnPassantMode, Move, MoveList, Piece, Position, Square,
 };
 
+use super::tt::TranspositionTableEntry;
 use super::SearchState;
 
 pub struct Search {
@@ -283,14 +283,11 @@ impl Search {
                 best_move = m;
 
                 if best_score > alpha {
-                    // Storing PV search Line
                     self.state.pv.store(ply, best_move.clone());
                     alpha = best_score;
 
                     if alpha >= beta {
-                        if ply < self.state.cfg.max_depth_killer_moves {
-                            self.add_killer_move(ply, m.clone());
-                        }
+                        self.state.km.store(ply, m.clone());
                         break;
                     }
                 }
@@ -377,7 +374,7 @@ impl Search {
             return m.promotion().unwrap() as i32;
         }
 
-        if self.state.km[ply].contains(&Some(m.clone())) {
+        if self.state.km.get(ply).contains(m) {
             return self.state.cfg.mo_killer_move_value;
         }
 
@@ -404,16 +401,5 @@ impl Search {
         let ordered_moves: MoveList = scores.into_iter().map(|(i, _)| moves[i].clone()).collect();
 
         ordered_moves
-    }
-
-    fn add_killer_move(&mut self, ply: usize, m: Move) {
-        if ply < self.state.cfg.max_depth_killer_moves {
-            let killers = &mut self.state.km[ply];
-
-            if !killers.contains(&Some(m.clone())) {
-                killers.pop();
-                killers.insert(0, Some(m));
-            }
-        }
     }
 }
