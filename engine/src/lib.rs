@@ -2,7 +2,7 @@
 //! Main entry point and module declarations.
 
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
-use crate::uci::{UciController};
+use crate::uci::UciController;
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 use std::cell::RefCell;
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
@@ -14,6 +14,7 @@ use web_sys::Worker;
 mod bound; // Position score bound types
 mod config; // Engine configuration settings
 mod eval; // Position evaluation
+mod logger;
 mod moves; // Move generation and handling
 mod nnue; // Neural Network evaluation
 mod principal_variation; // Best move line tracking

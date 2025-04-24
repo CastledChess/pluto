@@ -1,58 +1,28 @@
 use std::cmp::max;
 
 use crate::bound::Bound;
-use crate::config::Config;
 use crate::eval::Eval;
+use crate::logger::Logger;
 use crate::moves::DEFAULT_MOVE;
-use crate::nnue::NNUEState;
 use crate::nnue::OFF;
 use crate::nnue::ON;
-#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
-use crate::postMessage;
-use crate::principal_variation::PvTable;
-use crate::search::search_info::SearchInfo;
-use crate::search::search_params::SearchParams;
-use crate::time_control::time_controller::TimeController;
 use crate::time_control::time_mode::TimeMode;
-use crate::transposition::{TranspositionTable, TranspositionTableEntry};
-use crate::uci::UciMode;
+use crate::transposition::TranspositionTableEntry;
 use shakmaty::zobrist::{Zobrist64, ZobristHash};
 use shakmaty::{
     CastlingMode, CastlingSide, Chess, EnPassantMode, Move, MoveList, Piece, Position, Square,
 };
 
-/// A structure responsible for managing the chess game search process.
-/// It contains all necessary components for search execution including game state,
-/// evaluation, time control, and various optimization tables.
+use super::SearchState;
+
 pub struct Search {
-    /// Current chess game state
-    pub game: Chess,
-    /// Search parameters (e.g., depth, time limits)
-    pub params: SearchParams,
-    /// Search information and statistics
-    pub info: SearchInfo,
-    /// Time management controller
-    pub time_controller: TimeController,
-    /// Neural Network evaluation state
-    pub nnue_state: NNUEState,
-    /// Transposition table for storing previously evaluated positions
-    pub transposition_table: TranspositionTable,
-    /// Position history for repetition detection
-    pub history: Vec<Zobrist64>,
-    /// Engine configuration settings
-    pub config: Config,
-    /// Principal Variation table for storing best lines
-    pv_table: PvTable,
-    killer_moves: Vec<Vec<Option<Move>>>,
-    pub mode: UciMode,
+    pub state: SearchState,
 }
 
 impl Search {
-    fn log(&self, message: &str) {
-        match self.mode {
-            UciMode::Native => println!("{}", message),
-            #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
-            UciMode::Web => postMessage(message),
+    pub fn new() -> Self {
+        Self {
+            state: SearchState::new(),
         }
     }
     /// Makes a move on the board while updating NNUE (Neural Network) accumulator states.
@@ -61,8 +31,8 @@ impl Search {
     /// # Arguments
     /// * `pos` - Mutable reference to the chess position
     /// * `m` - Reference to the move to be played
-    pub fn make_move_nnue(&mut self, pos: &mut Chess, m: &Move) {
-        self.nnue_state.push();
+    pub fn make_move(&mut self, pos: &mut Chess, m: &Move) {
+        self.state.nnue.push();
         let turn = pos.turn();
         let board = pos.board();
 
@@ -70,7 +40,8 @@ impl Search {
             Move::EnPassant { from, to } => {
                 let ep_target = Square::from_coords(to.file(), from.rank()); // captured pawn
 
-                self.nnue_state
+                self.state
+                    .nnue
                     .manual_update::<OFF>((!pos.turn()).pawn(), ep_target);
             }
 
@@ -78,7 +49,7 @@ impl Search {
                 let side = CastlingSide::from_queen_side(rook < king);
                 let rook_target = Square::from_coords(side.rook_to_file(), rook.rank());
 
-                self.nnue_state.move_update(turn.rook(), *rook, rook_target);
+                self.state.nnue.move_update(turn.rook(), *rook, rook_target);
             }
 
             Move::Normal {
@@ -92,7 +63,8 @@ impl Search {
                     let target_piece = board.piece_at(*to).unwrap();
                     let target_square = *to;
 
-                    self.nnue_state
+                    self.state
+                        .nnue
                         .manual_update::<OFF>(target_piece, target_square);
                 }
 
@@ -107,10 +79,10 @@ impl Search {
                         role: promotion.unwrap(),
                     };
 
-                    self.nnue_state.manual_update::<OFF>(piece, *from);
-                    self.nnue_state.manual_update::<ON>(promoted_piece, *to);
+                    self.state.nnue.manual_update::<OFF>(piece, *from);
+                    self.state.nnue.manual_update::<ON>(promoted_piece, *to);
                 } else {
-                    self.nnue_state.move_update(piece, *from, *to);
+                    self.state.nnue.move_update(piece, *from, *to);
                 }
             }
 
@@ -118,72 +90,54 @@ impl Search {
         }
 
         pos.play_unchecked(m);
-        self.history.push(pos.zobrist_hash(EnPassantMode::Legal));
-    }
-
-    /// Makes a move on the board while updating NNUE (Neural Network) accumulator states.
-    /// This method should be used instead of regular make_move when NNUE evaluation is active.
-    ///
-    /// # Arguments
-    /// * `pos` - Mutable reference to the chess position
-    /// * `m` - Reference to the move to be played
-    #[allow(dead_code)]
-    pub fn make_move(&mut self, pos: &mut Chess, m: &Move) {
-        pos.play_unchecked(m);
-        self.history.push(pos.zobrist_hash(EnPassantMode::Legal));
-        self.nnue_state.refresh(pos.board());
+        self.state
+            .history
+            .push(pos.zobrist_hash(EnPassantMode::Legal));
     }
 
     /// Reverts the last move made with make_move_nnue.
     /// Restores NNUE state and removes last position from history.
-    pub fn undo_move_nnue(&mut self) {
-        self.nnue_state.pop();
-        self.history.pop();
-    }
-
-    /// Reverts the last move made with make_move.
-    /// Removes last position from history.
-    #[allow(dead_code)]
     pub fn undo_move(&mut self) {
-        self.history.pop();
+        self.state.nnue.pop();
+        self.state.history.pop();
     }
 
     /// Starts the search process using iterative deepening.
     /// Prints search information and best move when complete.
     pub fn go(&mut self, print: bool) {
-        self.time_controller.setup(&self.params, &self.game);
-        self.info.nodes = 0;
-        self.transposition_table.new_search();
+        self.state.tc.setup(&self.state.params, &self.state.game);
+        self.state.info.nodes = 0;
+        self.state.tt.new_search();
 
         let mut best_move = DEFAULT_MOVE.clone();
 
         /* Iterative deepening */
-        for current_depth in 0..self.params.depth {
-            if TimeMode::is_finite(&self.time_controller.time_mode)
-                && (self.time_controller.elapsed() * 2) as u128 > self.time_controller.play_time
+        for current_depth in 0..self.state.params.depth {
+            if TimeMode::is_finite(&self.state.tc.time_mode)
+                && (self.state.tc.elapsed() * 2) as u128 > self.state.tc.play_time
             {
                 break;
             }
 
-            self.info.depth = current_depth + 1;
-            let pos = self.game.clone();
-            let iteration_score = self.negamax(&pos, self.info.depth, -100000, 100000, 0);
+            self.state.info.depth = current_depth + 1;
+            let pos = self.state.game.clone();
+            let iteration_score = self.negamax(&pos, self.state.info.depth, -100000, 100000, 0);
 
-            if self.time_controller.is_time_up() {
+            if self.state.tc.is_time_up() {
                 break;
             }
 
-            best_move = self.pv_table.get_best_move().unwrap();
+            best_move = self.state.pv.get_best_move().unwrap();
 
-            let elapsed = self.time_controller.elapsed();
-            let pv = self.pv_table.collect();
+            let elapsed = self.state.tc.elapsed();
+            let pv = self.state.pv.collect();
 
             if print {
-                self.log(&format!(
+                Logger::log(&format!(
                     "info depth {} nodes {} nps {} score cp {} time {} pv {}",
-                    self.info.depth,
-                    self.info.nodes,
-                    self.info.nodes as u128 * 1000 / (elapsed + 1) as u128,
+                    self.state.info.depth,
+                    self.state.info.nodes,
+                    self.state.info.nodes as u128 * 1000 / (elapsed + 1) as u128,
                     iteration_score,
                     elapsed,
                     pv.join(" ")
@@ -192,7 +146,7 @@ impl Search {
         }
 
         if print {
-            self.log(&format!(
+            Logger::log(&format!(
                 "bestmove {}",
                 best_move.to_uci(CastlingMode::Standard)
             ));
@@ -211,25 +165,25 @@ impl Search {
     /// # Returns
     /// * Score of the position from the perspective of the side to move
     fn negamax(&mut self, pos: &Chess, depth: u8, mut alpha: i32, beta: i32, ply: usize) -> i32 {
-        self.pv_table.update_length(ply);
+        self.state.pv.update_length(ply);
 
-        if self.time_controller.is_time_up() {
+        if self.state.tc.is_time_up() {
             return 0;
         }
 
         if depth == 0 {
-            return self.quiesce(pos, alpha, beta, self.config.qsearch_depth);
+            return self.quiesce(pos, alpha, beta, self.state.cfg.qsearch_depth);
         }
 
-        self.info.nodes += 1;
+        self.state.info.nodes += 1;
 
         let is_root = ply == 0;
         let position_key = pos.zobrist_hash::<Zobrist64>(EnPassantMode::Legal);
-        let entry = self.transposition_table.probe(position_key);
+        let entry = self.state.tt.probe(position_key);
 
         /* Transposition Table Cut-offs */
         if entry.key == position_key
-            && entry.generation == self.transposition_table.generation
+            && entry.generation == self.state.tt.generation
             && !is_root
             && entry.depth >= depth
             && (entry.bound == Bound::Exact
@@ -239,10 +193,11 @@ impl Search {
             return entry.score;
         }
 
-        let static_eval = Eval::nnue_eval(&self.nnue_state, pos);
+        let static_eval = Eval::nnue_eval(&self.state.nnue, pos);
 
         if ply > 0
             && self
+                .state
                 .history
                 .iter()
                 .rev()
@@ -270,8 +225,8 @@ impl Search {
             }
 
             /* Reverse Futility Pruning */
-            if !is_pv && depth <= self.config.rfp_depth {
-                let score = static_eval - self.config.rfp_depth_multiplier * depth as i32;
+            if !is_pv && depth <= self.state.cfg.rfp_depth {
+                let score = static_eval - self.state.cfg.rfp_depth_multiplier * depth as i32;
                 if score >= beta {
                     return static_eval;
                 }
@@ -296,7 +251,7 @@ impl Search {
         for i in 0..ordered_moves.len() {
             let m = &ordered_moves[i];
             let mut pos = pos.clone();
-            self.make_move_nnue(&mut pos, m);
+            self.make_move(&mut pos, m);
 
             let mut score: i32;
             let mut r = 1;
@@ -321,7 +276,7 @@ impl Search {
                 }
             }
 
-            self.undo_move_nnue();
+            self.undo_move();
 
             if score > best_score {
                 best_score = score;
@@ -329,11 +284,11 @@ impl Search {
 
                 if best_score > alpha {
                     // Storing PV search Line
-                    self.pv_table.store(ply, best_move.clone());
+                    self.state.pv.store(ply, best_move.clone());
                     alpha = best_score;
 
                     if alpha >= beta {
-                        if ply < self.config.max_depth_killer_moves {
+                        if ply < self.state.cfg.max_depth_killer_moves {
                             self.add_killer_move(ply, m.clone());
                         }
                         break;
@@ -348,7 +303,8 @@ impl Search {
             _ => Bound::Exact,
         };
 
-        self.transposition_table
+        self.state
+            .tt
             .store(position_key, depth, best_score, bound, best_move.clone());
 
         best_score
@@ -365,8 +321,9 @@ impl Search {
     /// # Returns
     /// * Static evaluation or tactical sequence evaluation
     fn quiesce(&mut self, pos: &Chess, mut alpha: i32, beta: i32, limit: u8) -> i32 {
-        self.info.nodes += 1;
-        let stand_pat = Eval::nnue_eval(&self.nnue_state, pos);
+        self.state.info.nodes += 1;
+
+        let stand_pat = Eval::nnue_eval(&self.state.nnue, pos);
 
         if limit == 0 {
             return stand_pat;
@@ -382,9 +339,9 @@ impl Search {
 
         for m in moves {
             let mut pos = pos.clone();
-            self.make_move_nnue(&mut pos, &m);
+            self.make_move(&mut pos, &m);
             let score = -self.quiesce(&pos, -beta, -alpha, limit - 1);
-            self.undo_move_nnue();
+            self.undo_move();
 
             if score >= beta {
                 return beta;
@@ -406,20 +363,25 @@ impl Search {
     /// # Returns
     /// * Numerical value representing move importance
     fn move_importance(&self, entry: &TranspositionTableEntry, ply: usize, m: &Move) -> i32 {
-        match m {
-            m if m == &entry._move => self.config.mo_tt_entry_value,
-            m if m.is_capture() => {
-                let piece_value = m.role() as i32;
-                let capture_value = m.capture().unwrap() as i32;
-
-                self.config.mo_capture_value * capture_value - piece_value
-            }
-            m if self.killer_moves[ply].contains(&Some(m.clone())) => {
-                self.config.mo_killer_move_value
-            }
-            m if m.is_promotion() => m.promotion().unwrap() as i32,
-            _ => 0,
+        if *m == entry._move {
+            return self.state.cfg.mo_tt_entry_value;
         }
+
+        if m.is_capture() {
+            let piece_value = m.role() as i32;
+            let capture_value = m.capture().unwrap() as i32;
+            return self.state.cfg.mo_capture_value * capture_value - piece_value;
+        }
+
+        if m.is_promotion() {
+            return m.promotion().unwrap() as i32;
+        }
+
+        if self.state.km[ply].contains(&Some(m.clone())) {
+            return self.state.cfg.mo_killer_move_value;
+        }
+
+        0
     }
 
     /// Orders moves based on their predicted importance.
@@ -430,69 +392,28 @@ impl Search {
     ///
     /// # Returns
     /// * Ordered list of moves
-    fn order_moves(
-        &self,
-        entry: TranspositionTableEntry,
-        ply: usize,
-        mut moves: MoveList,
-    ) -> MoveList {
-        moves.sort_by(|a, b| {
-            let a_score = self.move_importance(&entry, ply, a);
-            let b_score = self.move_importance(&entry, ply, b);
+    fn order_moves(&self, entry: TranspositionTableEntry, ply: usize, moves: MoveList) -> MoveList {
+        let mut scores: Vec<(usize, i32)> = moves
+            .iter()
+            .enumerate()
+            .map(|(i, m)| (i, self.move_importance(&entry, ply, m)))
+            .collect();
 
-            b_score.cmp(&a_score)
-        });
+        scores.sort_by(|a, b| b.1.cmp(&a.1));
 
-        moves
+        let ordered_moves: MoveList = scores.into_iter().map(|(i, _)| moves[i].clone()).collect();
+
+        ordered_moves
     }
 
     fn add_killer_move(&mut self, ply: usize, m: Move) {
-        if ply < self.config.max_depth_killer_moves {
-            let killers = &mut self.killer_moves[ply];
+        if ply < self.state.cfg.max_depth_killer_moves {
+            let killers = &mut self.state.km[ply];
+
             if !killers.contains(&Some(m.clone())) {
                 killers.pop();
                 killers.insert(0, Some(m));
             }
-        }
-    }
-
-    #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
-    pub fn web() -> Self {
-        let config = Config::load().unwrap();
-
-        Search {
-            mode: UciMode::Web,
-            game: Chess::default(),
-            transposition_table: TranspositionTable::new(config.tt_size),
-            params: SearchParams::default(),
-            info: SearchInfo::default(),
-            time_controller: TimeController::default(),
-            history: Vec::new(),
-            pv_table: PvTable::default(),
-            nnue_state: NNUEState::from_board(Chess::default().board()),
-            killer_moves: vec![vec![None; config.nb_killer_moves]; config.max_depth_killer_moves],
-            config,
-        }
-    }
-}
-
-/// Implements default initialization for Search struct
-impl Default for Search {
-    fn default() -> Self {
-        let config = Config::load().unwrap();
-
-        Search {
-            mode: UciMode::Native,
-            game: Chess::default(),
-            transposition_table: TranspositionTable::new(config.tt_size),
-            params: SearchParams::default(),
-            info: SearchInfo::default(),
-            time_controller: TimeController::default(),
-            history: Vec::new(),
-            pv_table: PvTable::default(),
-            nnue_state: NNUEState::from_board(Chess::default().board()),
-            killer_moves: vec![vec![None; config.nb_killer_moves]; config.max_depth_killer_moves],
-            config,
         }
     }
 }
