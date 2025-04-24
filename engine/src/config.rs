@@ -27,8 +27,6 @@ pub struct Config {
     /// Value bonus applied to captures during move ordering
     pub mo_capture_value: i32,
     pub mo_killer_move_value: i32,
-    pub nb_killer_moves: usize,
-    pub max_depth_killer_moves: usize,
 }
 
 impl Config {
