@@ -12,6 +12,7 @@ use chrono::Local;
 use queues::{queue, IsQueue, Queue};
 use shakmaty::fen::Fen;
 use shakmaty::uci::UciMove;
+use shakmaty::zobrist::ZobristHash;
 use shakmaty::{CastlingMode, Chess, Position};
 
 /// UCI option types supported by the engine.
@@ -311,6 +312,7 @@ impl UciController {
     /// * `tokens` - Queue containing moves to apply
     fn handle_position_startpos(&mut self, tokens: &mut Queue<&str>) {
         self.search.state.game = Chess::default();
+        self.search.state.history.clear();
 
         if let Ok(moves) = tokens.remove() {
             if moves != "moves" {
@@ -321,7 +323,14 @@ impl UciController {
                 let uci_move = move_str.parse::<UciMove>().ok();
                 let game = self.search.state.game.clone();
                 let legal = uci_move.unwrap().to_move(&game).ok().unwrap();
+
                 self.search.state.game = game.play(&legal).unwrap();
+                self.search.state.history.push(
+                    self.search
+                        .state
+                        .game
+                        .zobrist_hash(shakmaty::EnPassantMode::Legal),
+                )
             }
         }
 
@@ -354,13 +363,21 @@ impl UciController {
         let fen: Fen = fen_vec.join(" ").as_str().parse().ok().unwrap();
 
         self.search.state.game = fen.into_position(CastlingMode::Standard).ok().unwrap();
+        self.search.state.history.clear();
 
         if token == "moves" {
             while let Ok(move_str) = tokens.remove() {
                 let uci_move = move_str.parse::<UciMove>().ok();
                 let game = self.search.state.game.clone();
                 let legal = uci_move.unwrap().to_move(&game).ok().unwrap();
+
                 self.search.state.game = game.play(&legal).unwrap();
+                self.search.state.history.push(
+                    self.search
+                        .state
+                        .game
+                        .zobrist_hash(shakmaty::EnPassantMode::Legal),
+                )
             }
         }
 
