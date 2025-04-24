@@ -413,9 +413,7 @@ impl UciController {
 
                 self.search.state.tt = TranspositionTable::new(entries as usize);
             }
-            "Qself.search.state.epth" => {
-                self.search.state.cfg.qsearch_depth = value.parse::<u8>().unwrap()
-            }
+            "QSearchDepth" => self.search.state.cfg.qsearch_depth = value.parse::<u8>().unwrap(),
             "RFPDepth" => self.search.state.cfg.rfp_depth = value.parse::<u8>().unwrap(),
             "RFPDepthMultiplier" => {
                 self.search.state.cfg.rfp_depth_multiplier = value.parse::<i32>().unwrap()
