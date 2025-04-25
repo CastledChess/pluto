@@ -12,6 +12,7 @@ use shakmaty::{
     CastlingMode, CastlingSide, Chess, EnPassantMode, Move, MoveList, Piece, Position, Square,
 };
 
+use super::move_picker::MovePicker;
 use super::tt::TranspositionTableEntry;
 use super::SearchState;
 
@@ -234,6 +235,7 @@ impl Search {
         }
 
         let moves = pos.legal_moves();
+        let mp = MovePicker::new(&moves, &self.state, &entry, ply);
 
         /* Checkmate/Draw Detection */
         if moves.is_empty() {
@@ -245,11 +247,10 @@ impl Search {
 
         let start_alpha = alpha;
         let mut best_score = -100000;
-        let ordered_moves = self.order_moves(entry, ply, moves);
-        let mut best_move = &ordered_moves[0];
+        let mut best_move = &moves[0];
 
-        for i in 0..ordered_moves.len() {
-            let m = &ordered_moves[i];
+        for (i, move_index) in mp.enumerate() {
+            let m = &moves[move_index];
             let mut pos = pos.clone();
             self.make_move(&mut pos, m);
 
@@ -349,57 +350,5 @@ impl Search {
         }
 
         alpha
-    }
-
-    /// Calculates the relative importance of a move for move ordering.
-    ///
-    /// # Arguments
-    /// * `entry` - Reference to transposition table entry
-    /// * `m` - Reference to the move being evaluated
-    ///
-    /// # Returns
-    /// * Numerical value representing move importance
-    fn move_importance(&self, entry: &TranspositionTableEntry, ply: usize, m: &Move) -> i32 {
-        if *m == entry._move {
-            return self.state.cfg.mo_tt_entry_value;
-        }
-
-        if m.is_capture() {
-            let piece_value = m.role() as i32;
-            let capture_value = m.capture().unwrap() as i32;
-            return self.state.cfg.mo_capture_value * capture_value - piece_value;
-        }
-
-        if m.is_promotion() {
-            return m.promotion().unwrap() as i32;
-        }
-
-        if self.state.km.get(ply).contains(m) {
-            return self.state.cfg.mo_killer_move_value;
-        }
-
-        0
-    }
-
-    /// Orders moves based on their predicted importance.
-    ///
-    /// # Arguments
-    /// * `entry` - Transposition table entry for current position
-    /// * `moves` - List of legal moves to be ordered
-    ///
-    /// # Returns
-    /// * Ordered list of moves
-    fn order_moves(&self, entry: TranspositionTableEntry, ply: usize, moves: MoveList) -> MoveList {
-        let mut scores: Vec<(usize, i32)> = moves
-            .iter()
-            .enumerate()
-            .map(|(i, m)| (i, self.move_importance(&entry, ply, m)))
-            .collect();
-
-        scores.sort_by(|a, b| b.1.cmp(&a.1));
-
-        let ordered_moves: MoveList = scores.into_iter().map(|(i, _)| moves[i].clone()).collect();
-
-        ordered_moves
     }
 }

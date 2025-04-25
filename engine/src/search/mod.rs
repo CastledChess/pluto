@@ -1,5 +1,6 @@
 pub mod info;
 pub mod killers;
+pub mod move_picker;
 pub mod params;
 pub mod pv;
 pub mod search;
