@@ -8,12 +8,9 @@ use crate::nnue::OFF;
 use crate::nnue::ON;
 use crate::time_control::time_mode::TimeMode;
 use shakmaty::zobrist::{Zobrist64, ZobristHash};
-use shakmaty::{
-    CastlingMode, CastlingSide, Chess, EnPassantMode, Move, MoveList, Piece, Position, Square,
-};
+use shakmaty::{CastlingMode, CastlingSide, Chess, EnPassantMode, Move, Piece, Position, Square};
 
 use super::move_picker::MovePicker;
-use super::tt::TranspositionTableEntry;
 use super::SearchState;
 
 pub struct Search {
