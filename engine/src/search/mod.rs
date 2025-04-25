@@ -1,3 +1,4 @@
+pub mod history;
 pub mod info;
 pub mod killers;
 pub mod move_picker;
@@ -6,6 +7,7 @@ pub mod pv;
 pub mod search;
 pub mod tt;
 
+use history::HistoryTable;
 use info::SearchInfo;
 use killers::Killers;
 use params::SearchParams;
@@ -26,6 +28,7 @@ pub struct SearchState {
     pub cfg: Config,
     pub pv: PvTable,
     pub km: Killers,
+    pub hist: HistoryTable,
 }
 
 impl SearchState {
@@ -42,6 +45,7 @@ impl SearchState {
             history: Vec::new(),
             pv: PvTable::default(),
             km: Killers::new(),
+            hist: HistoryTable::new(),
             cfg,
         }
     }

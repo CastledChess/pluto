@@ -1,6 +1,8 @@
 use super::{tt::TranspositionTableEntry, SearchState};
 use shakmaty::{Move, MoveList};
 
+const MO_FACTOR: i32 = 10000;
+
 pub struct MovePicker {
     order: Vec<usize>, // sorted indices into moves
     curr: usize,
@@ -48,23 +50,23 @@ impl MovePicker {
         m: &Move,
     ) -> i32 {
         if *m == entry._move {
-            return state.cfg.mo_tt_entry_value;
+            return state.cfg.mo_tt_entry_value * MO_FACTOR;
         }
 
         if m.is_capture() {
             let piece_value = m.role() as i32;
             let capture_value = m.capture().unwrap() as i32;
-            return state.cfg.mo_capture_value * capture_value - piece_value;
+            return (state.cfg.mo_capture_value * capture_value - piece_value) * MO_FACTOR;
+        }
+
+        if state.km.get(ply).contains(m) {
+            return state.cfg.mo_killer_move_value * MO_FACTOR;
         }
 
         if m.is_promotion() {
             return m.promotion().unwrap() as i32;
         }
 
-        if state.km.get(ply).contains(m) {
-            return state.cfg.mo_killer_move_value;
-        }
-
-        0
+        state.hist.get(m.role(), m.to())
     }
 }
