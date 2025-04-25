@@ -1,14 +1,12 @@
-//! CastledEngine - A UCI chess engine implementation in Rust.
-//! Main entry point and module declarations.
-
-#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+#[cfg(target_arch = "wasm32")]
 use crate::uci::UciController;
-#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+#[cfg(target_arch = "wasm32")]
 use std::cell::RefCell;
-#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+#[cfg(target_arch = "wasm32")]
 use std::rc::Rc;
+#[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
-#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+#[cfg(target_arch = "wasm32")]
 use web_sys::Worker;
 
 mod bound; // Position score bound types
@@ -21,13 +19,13 @@ mod search; // Search algorithm implementation
 mod time_control; // Time management
 mod uci; // Universal Chess Interface protocol
 
-#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+#[cfg(target_arch = "wasm32")]
 use std::sync::{LazyLock, Mutex};
 
-#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+#[cfg(target_arch = "wasm32")]
 static UCI: LazyLock<Mutex<UciController>> = LazyLock::new(|| Mutex::new(UciController::web()));
 
-#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub fn init_wasm() {
     log("id name CastledEngine");
@@ -35,7 +33,7 @@ pub fn init_wasm() {
     log("uciok");
 }
 
-#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub fn main_wasm(command: &str) {
     let mut uci = UCI.lock().unwrap();
@@ -43,6 +41,7 @@ pub fn main_wasm(command: &str) {
     uci.parse_command(&command);
 }
 
+#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 extern "C" {
     #[wasm_bindgen(js_namespace = console)]
