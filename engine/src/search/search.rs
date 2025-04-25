@@ -48,6 +48,14 @@ impl Search {
                 let rook_target = Square::from_coords(side.rook_to_file(), rook.rank());
 
                 self.state.nnue.move_update(turn.rook(), *rook, rook_target);
+                self.state.nnue.move_update(
+                    Piece {
+                        color: turn,
+                        role: m.role(),
+                    },
+                    m.from().unwrap(),
+                    m.to(),
+                );
             }
 
             Move::Normal {
