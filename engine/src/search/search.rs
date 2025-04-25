@@ -112,6 +112,7 @@ impl Search {
     /// Prints search information and best move when complete.
     pub fn go(&mut self, print: bool) {
         self.state.tc.setup(&self.state.params, &self.state.game);
+        self.state.hist.new_search();
         self.state.info.nodes = 0;
         self.state.tt.new_search();
 
@@ -291,12 +292,17 @@ impl Search {
                 if best_score > alpha {
                     self.state.pv.store(ply, best_move.clone());
                     alpha = best_score;
-
-                    if alpha >= beta {
-                        self.state.km.store(ply, m.clone());
-                        break;
-                    }
                 }
+            }
+
+            if score >= beta {
+                self.state.km.store(ply, m.clone());
+
+                if !m.is_capture() {
+                    self.state.hist.update(m.role(), m.to(), depth as i32);
+                }
+
+                break;
             }
         }
 

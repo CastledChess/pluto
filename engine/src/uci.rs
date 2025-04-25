@@ -141,6 +141,9 @@ impl UciController {
     fn parse_tokens(&mut self, tokens: &mut Queue<&str>) {
         let first_token = tokens.remove().unwrap();
 
+        self.search.state.tc.time_mode = TimeMode::Infinite;
+        self.search.state.params.depth = u8::MAX;
+
         match first_token {
             "bench" => self.handle_bench(),
             "uci" => self.handle_uci(),
