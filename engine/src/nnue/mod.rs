@@ -1,14 +1,14 @@
 use shakmaty::{Board, Piece, Square};
 
 pub const FEATURES: usize = 768;
-pub const HIDDEN: usize = 2048;
+pub const HIDDEN: usize = 512;
 pub const QA: i16 = 255;
 pub const QAB: i16 = 255 * 64;
 pub const SCALE: i32 = 400;
 
 pub static NNUE: Network = unsafe {
     std::mem::transmute(*include_bytes!(
-        "../../../bin/(768-2048)x2-1_screlu-50.bin"
+        "../../../bin/(768-512)x2-1_screlu-400.bin"
     ))
 };
 
