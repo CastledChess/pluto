@@ -194,8 +194,8 @@ impl Search {
             && !is_root
             && entry.depth >= depth
             && (entry.bound == Bound::Exact
-                || (entry.bound == Bound::Alpha && entry.score <= alpha)
-                || (entry.bound == Bound::Beta && entry.score >= beta))
+            || (entry.bound == Bound::Alpha && entry.score <= alpha)
+            || (entry.bound == Bound::Beta && entry.score >= beta))
         {
             return entry.score;
         }
@@ -204,14 +204,14 @@ impl Search {
 
         if ply > 0
             && self
-                .state
-                .history
-                .iter()
-                .rev()
-                .skip(1)
-                .filter(|&&h| h == position_key)
-                .count()
-                >= 1
+            .state
+            .history
+            .iter()
+            .rev()
+            .skip(1)
+            .filter(|&&h| h == position_key)
+            .count()
+            >= 1
         {
             return 0;
         }
@@ -257,6 +257,11 @@ impl Search {
 
         for (i, move_index) in mp.enumerate() {
             let m = &moves[move_index];
+
+            if !m.is_capture() && !is_pv && !m.is_promotion() && !is_check && i >= 2 + (3 * depth) as usize {
+                continue;
+            }
+
             let mut pos = pos.clone();
             self.make_move(&mut pos, m);
 
