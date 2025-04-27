@@ -6,6 +6,7 @@ pub mod params;
 pub mod pv;
 pub mod search;
 pub mod tt;
+mod counter;
 
 use history::HistoryTable;
 use info::SearchInfo;
@@ -16,6 +17,7 @@ use shakmaty::{zobrist::Zobrist64, Chess, Position};
 use tt::TranspositionTable;
 
 use crate::{config::Config, nnue::NNUEState, time_control::time_controller::TimeController};
+use crate::search::counter::CounterMovesTable;
 
 pub struct SearchState {
     pub game: Chess,
@@ -28,6 +30,7 @@ pub struct SearchState {
     pub cfg: Config,
     pub pv: PvTable,
     pub km: Killers,
+    pub counter: CounterMovesTable,
     pub hist: HistoryTable,
 }
 
@@ -46,6 +49,7 @@ impl SearchState {
             pv: PvTable::default(),
             km: Killers::new(),
             hist: HistoryTable::new(),
+            counter: CounterMovesTable::new(),
             cfg,
         }
     }

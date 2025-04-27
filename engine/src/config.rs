@@ -26,6 +26,7 @@ pub struct Config {
     pub mo_tt_entry_value: i32,
     /// Value bonus applied to captures during move ordering
     pub mo_capture_value: i32,
+    pub mo_counter_move_value: i32,
     pub mo_killer_move_value: i32,
 }
 

@@ -49,24 +49,34 @@ impl MovePicker {
         ply: usize,
         m: &Move,
     ) -> i32 {
+        let mut score = 0;
+
         if *m == entry._move {
-            return state.cfg.mo_tt_entry_value * MO_FACTOR;
+            score += state.cfg.mo_tt_entry_value * MO_FACTOR;
         }
 
         if m.is_capture() {
             let piece_value = m.role() as i32;
             let capture_value = m.capture().unwrap() as i32;
-            return (state.cfg.mo_capture_value * capture_value - piece_value) * MO_FACTOR;
+            score += (state.cfg.mo_capture_value * capture_value - piece_value) * MO_FACTOR;
+        }
+
+        if let Some(cm) = state.counter.get(m.from().unwrap(), m.to()) {
+            if cm == m {
+                score += state.cfg.mo_counter_move_value * MO_FACTOR;
+            }
         }
 
         if state.km.get(ply).contains(m) {
-            return state.cfg.mo_killer_move_value * MO_FACTOR;
+            score += state.cfg.mo_killer_move_value * MO_FACTOR;
         }
 
         if m.is_promotion() {
-            return m.promotion().unwrap() as i32;
+            score += m.promotion().unwrap() as i32;
         }
 
-        state.hist.get(m.role(), m.to())
+        score += state.hist.get(m.role(), m.to());
+
+        score
     }
 }

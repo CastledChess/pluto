@@ -299,7 +299,12 @@ impl Search {
                 self.state.km.store(ply, m.clone());
 
                 if !m.is_capture() {
-                    self.state.hist.update(m.role(), m.to(), depth as i32);
+                    let from = m.from().unwrap();
+                    let to = m.to();
+                    let role = m.role();
+
+                    self.state.hist.update(role, to, depth as i32);
+                    self.state.counter.set(from, to, m.clone());
                 }
 
                 break;

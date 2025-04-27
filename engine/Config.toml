@@ -6,3 +6,4 @@ tt_size = 0x7FFFFF
 mo_tt_entry_value = 228
 mo_capture_value = 48
 mo_killer_move_value = 80
+mo_counter_move_value = 40
