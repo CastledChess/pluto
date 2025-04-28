@@ -1,4 +1,5 @@
 pub mod history;
+pub mod history_stack;
 pub mod info;
 pub mod killers;
 pub mod move_picker;
@@ -12,9 +13,10 @@ use info::SearchInfo;
 use killers::Killers;
 use params::SearchParams;
 use pv::PvTable;
-use shakmaty::{zobrist::Zobrist64, Chess, Position};
+use shakmaty::{Chess, Position};
 use tt::TranspositionTable;
 
+use crate::search::history_stack::HistoryStack;
 use crate::{config::Config, nnue::NNUEState, time_control::time_controller::TimeController};
 
 pub struct SearchState {
@@ -24,7 +26,7 @@ pub struct SearchState {
     pub tc: TimeController,
     pub nnue: NNUEState,
     pub tt: TranspositionTable,
-    pub history: Vec<Zobrist64>,
+    pub hstack: HistoryStack,
     pub cfg: Config,
     pub pv: PvTable,
     pub km: Killers,
@@ -42,7 +44,7 @@ impl SearchState {
             tc: TimeController::default(),
             params: SearchParams::default(),
             nnue: NNUEState::from_board(Chess::default().board()),
-            history: Vec::new(),
+            hstack: HistoryStack::new(),
             pv: PvTable::default(),
             km: Killers::new(),
             hist: HistoryTable::new(),
