@@ -226,7 +226,10 @@ impl Search {
         if !is_check && !is_pv {
             /* Null Move Pruning */
             if depth > 3 && ply > 0 && Eval::has_pieces(pos) {
-                let r = (4 + depth / 4).min(depth);
+                let r = match improving {
+                    true => (4 + depth / 2).min(depth),
+                    false => (4 + depth / 4).min(depth),
+                };
                 let pos = pos.clone().swap_turn().unwrap();
                 let score = -self.negamax(&pos, depth - r, -beta, -beta + 1, ply + 1);
 

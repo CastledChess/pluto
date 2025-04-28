@@ -34,6 +34,10 @@ impl HistoryStack {
     }
 
     pub fn get_eval(&self, ply: usize) -> Option<i32> {
+        if ply >= self.stack.len() {
+            return None;
+        }
+
         self.stack[ply].eval
     }
 
