@@ -29,7 +29,7 @@ impl Search {
     /// # Arguments
     /// * `pos` - Mutable reference to the chess position
     /// * `m` - Reference to the move to be played
-    pub fn make_move(&mut self, pos: &mut Chess, m: &Move) {
+    pub fn make_move(&mut self, pos: &mut Chess, m: &Move, eval: i32) {
         self.state.nnue.push();
         let turn = pos.turn();
         let board = pos.board();
@@ -97,15 +97,15 @@ impl Search {
 
         pos.play_unchecked(m);
         self.state
-            .history
-            .push(pos.zobrist_hash(EnPassantMode::Legal));
+            .hstack
+            .push(pos.zobrist_hash(EnPassantMode::Legal), Some(eval));
     }
 
     /// Reverts the last move made with make_move_nnue.
     /// Restores NNUE state and removes last position from history.
     pub fn undo_move(&mut self) {
         self.state.nnue.pop();
-        self.state.history.pop();
+        self.state.hstack.pop();
     }
 
     /// Starts the search process using iterative deepening.
@@ -194,34 +194,38 @@ impl Search {
             && !is_root
             && entry.depth >= depth
             && (entry.bound == Bound::Exact
-            || (entry.bound == Bound::Alpha && entry.score <= alpha)
-            || (entry.bound == Bound::Beta && entry.score >= beta))
+                || (entry.bound == Bound::Alpha && entry.score <= alpha)
+                || (entry.bound == Bound::Beta && entry.score >= beta))
         {
             return entry.score;
         }
 
         let static_eval = Eval::nnue_eval(&self.state.nnue, pos);
+        let improving = match ply {
+            ply if ply < 2 => false,
+            _ => {
+                static_eval >= {
+                    let e = self.state.hstack.get_eval(ply - 2);
 
-        if ply > 0
-            && self
-            .state
-            .history
-            .iter()
-            .rev()
-            .skip(1)
-            .filter(|&&h| h == position_key)
-            .count()
-            >= 1
-        {
+                    if let Some(e) = e {
+                        e
+                    } else {
+                        static_eval
+                    }
+                }
+            }
+        };
+
+        if ply > 0 && self.state.hstack.count_zobrist(position_key) >= 1 {
             return 0;
         }
 
         let is_pv = beta - alpha != 1;
         let is_check = pos.is_check();
 
-        if !is_check {
+        if !is_check && !is_pv {
             /* Null Move Pruning */
-            if depth > 3 && !is_pv && ply > 0 && Eval::has_pieces(pos) {
+            if depth > 3 && ply > 0 && Eval::has_pieces(pos) {
                 let r = (4 + depth / 4).min(depth);
                 let pos = pos.clone().swap_turn().unwrap();
                 let score = -self.negamax(&pos, depth - r, -beta, -beta + 1, ply + 1);
@@ -232,9 +236,13 @@ impl Search {
             }
 
             /* Reverse Futility Pruning */
-            if !is_pv && depth <= self.state.cfg.rfp_depth {
-                let score = static_eval - self.state.cfg.rfp_depth_multiplier * depth as i32;
-                if score >= beta {
+            if depth <= self.state.cfg.rfp_depth {
+                let rfp_margin = match improving {
+                    true => self.state.cfg.rfp_depth_multiplier * depth as i32 - 28,
+                    false => self.state.cfg.rfp_depth_multiplier * depth as i32,
+                };
+
+                if static_eval >= beta + rfp_margin {
                     return static_eval;
                 }
             }
@@ -258,12 +266,17 @@ impl Search {
         for (i, move_index) in mp.enumerate() {
             let m = &moves[move_index];
 
-            if !m.is_capture() && !is_pv && !m.is_promotion() && !is_check && i >= 2 + (3 * depth) as usize {
+            if !m.is_capture()
+                && !is_pv
+                && !m.is_promotion()
+                && !is_check
+                && i >= 2 + (3 * depth) as usize
+            {
                 continue;
             }
 
             let mut pos = pos.clone();
-            self.make_move(&mut pos, m);
+            self.make_move(&mut pos, m, static_eval);
 
             let mut score: i32;
             let mut r = 1;
@@ -353,7 +366,7 @@ impl Search {
 
         for m in moves {
             let mut pos = pos.clone();
-            self.make_move(&mut pos, &m);
+            self.make_move(&mut pos, &m, stand_pat);
             let score = -self.quiesce(&pos, -beta, -alpha, limit - 1);
             self.undo_move();
 
