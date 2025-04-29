@@ -1,5 +1,3 @@
-use std::cmp::max;
-
 use crate::bound::Bound;
 use crate::eval::Eval;
 use crate::logger::Logger;
@@ -111,7 +109,9 @@ impl Search {
     /// Starts the search process using iterative deepening.
     /// Prints search information and best move when complete.
     pub fn go(&mut self, print: bool) {
-        self.state.tc.setup(&self.state.params, &self.state.game);
+        self.state
+            .tc
+            .setup(&self.state.params, &self.state.game, &self.state.cfg);
         self.state.hist.new_search();
         self.state.info.nodes = 0;
         self.state.tt.new_search();
@@ -121,7 +121,8 @@ impl Search {
         /* Iterative deepening */
         for current_depth in 0..self.state.params.depth {
             if TimeMode::is_finite(&self.state.tc.time_mode)
-                && (self.state.tc.elapsed() * 2) as u128 > self.state.tc.play_time
+                && (self.state.tc.elapsed() * self.state.cfg.tc_elapsed_factor) as u128
+                    > self.state.tc.play_time
             {
                 break;
             }
@@ -206,7 +207,6 @@ impl Search {
             _ => {
                 static_eval >= {
                     let e = self.state.hstack.get_eval(ply - 2);
-
                     if let Some(e) = e {
                         e
                     } else {
@@ -225,11 +225,16 @@ impl Search {
 
         if !is_check && !is_pv {
             /* Null Move Pruning */
-            if depth > 3 && ply > 0 && Eval::has_pieces(pos) {
+            if depth > self.state.cfg.nmp_depth && ply > 0 && Eval::has_pieces(pos) {
                 let r = match improving {
-                    true => (4 + depth / 2).min(depth),
-                    false => (4 + depth / 4).min(depth),
+                    true => (self.state.cfg.nmp_margin
+                        + depth / self.state.cfg.nmp_divisor_improving)
+                        .min(depth),
+                    false => {
+                        (self.state.cfg.nmp_margin + depth / self.state.cfg.nmp_divisor).min(depth)
+                    }
                 };
+
                 let pos = pos.clone().swap_turn().unwrap();
                 let score = -self.negamax(&pos, depth - r, -beta, -beta + 1, ply + 1);
 
@@ -241,8 +246,11 @@ impl Search {
             /* Reverse Futility Pruning */
             if depth <= self.state.cfg.rfp_depth {
                 let rfp_margin = match improving {
-                    true => self.state.cfg.rfp_depth_multiplier * depth as i32 - 28,
-                    false => self.state.cfg.rfp_depth_multiplier * depth as i32,
+                    true => {
+                        self.state.cfg.rfp_base_margin * depth as i32
+                            - self.state.cfg.rfp_reduction_improving
+                    }
+                    false => self.state.cfg.rfp_base_margin * depth as i32,
                 };
 
                 if static_eval >= beta + rfp_margin {
@@ -273,7 +281,8 @@ impl Search {
                 && !is_pv
                 && !m.is_promotion()
                 && !is_check
-                && i >= 2 + (3 * depth) as usize
+                && i >= self.state.cfg.lmp_move_margin
+                    + (self.state.cfg.lmp_depth_factor * depth) as usize
             {
                 continue;
             }
@@ -284,13 +293,24 @@ impl Search {
             let mut score: i32;
             let mut r = 1;
 
-            if depth >= 2 && i >= 1 && !pos.is_check() {
+            if depth >= self.state.cfg.lmr_depth
+                && i >= self.state.cfg.lmr_move_margin
+                && !pos.is_check()
+            {
                 r = match m {
                     m if m.is_capture() || m.is_promotion() => {
-                        max(1, (0.7 + (depth as f64).ln() * (i as f64).ln() / 3.0) as u8)
+                        (self.state.cfg.lmr_base_margin
+                            + (depth as f64).ln() * (i as f64).ln()
+                                / self.state.cfg.lmr_base_divisor) as u8
                     }
-                    _ => max(1, (0.7 + (depth as f64).ln() * (i as f64).ln() / 2.4) as u8),
-                };
+
+                    _ => {
+                        (self.state.cfg.lmr_quiet_margin
+                            + (depth as f64).ln() * (i as f64).ln()
+                                / self.state.cfg.lmr_quiet_divisor) as u8
+                    }
+                }
+                .clamp(1, depth);
             }
             /* Principal Variation Search */
             match i {

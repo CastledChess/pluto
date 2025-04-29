@@ -1,5 +1,5 @@
-use crate::search::params::SearchParams;
 use crate::time_control::time_mode::TimeMode;
+use crate::{config::Config, search::params::SearchParams};
 use chrono::Local;
 use shakmaty::{Chess, Color, Position};
 
@@ -25,12 +25,12 @@ impl TimeController {
     /// # Arguments
     /// * `params` - Search parameters containing time allocations
     /// * `game` - Current chess position for determining active player
-    pub fn setup(&mut self, params: &SearchParams, game: &Chess) {
+    pub fn setup(&mut self, params: &SearchParams, game: &Chess, cfg: &Config) {
         self.play_time = match self.time_mode {
             TimeMode::MoveTime => params.move_time,
             TimeMode::WOrBTime => match game.turn() {
-                Color::White => params.w_time / 30,
-                Color::Black => params.b_time / 30,
+                Color::White => params.w_time / cfg.tc_time_divisor as u128,
+                Color::Black => params.b_time / cfg.tc_time_divisor as u128,
             },
             _ => 0,
         };

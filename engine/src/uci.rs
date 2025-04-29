@@ -15,40 +15,9 @@ use shakmaty::uci::UciMove;
 use shakmaty::zobrist::ZobristHash;
 use shakmaty::{CastlingMode, Chess, Position};
 
-/// UCI option types supported by the engine.
-#[allow(dead_code)]
-enum UciOptionType {
-    /// Boolean option (true/false)
-    Check,
-    /// Integer option with minimum and maximum bounds
-    Spin,
-    /// Option with predefined choices
-    Combo,
-    /// Action trigger without value
-    Button,
-    /// Text input option
-    String,
-}
-
-/// Represents a configurable UCI option with its properties.
-struct UciOption {
-    /// Name identifier of the option
-    name: String,
-    /// Default value as string representation
-    default: String,
-    /// Type of the option (determines how it's handled)
-    option_type: UciOptionType,
-    /// Minimum allowed value for numeric options
-    min: i32,
-    /// Maximum allowed value for numeric options
-    max: i32,
-}
-
 /// Main UCI protocol handler implementing the Universal Chess Interface.
 pub struct UciController {
     search: Search,
-    /// Available configuration options for the engine
-    options: Vec<UciOption>,
 }
 
 impl Default for UciController {
@@ -56,64 +25,6 @@ impl Default for UciController {
     fn default() -> UciController {
         UciController {
             search: Search::new(),
-            options: vec![
-                UciOption {
-                    name: "Threads".to_string(),
-                    default: "1".to_string(),
-                    option_type: UciOptionType::Spin,
-                    min: 1,
-                    max: 1,
-                },
-                UciOption {
-                    name: "Hash".to_string(),
-                    default: "200".to_string(),
-                    option_type: UciOptionType::Spin,
-                    min: 0,
-                    max: 1024,
-                },
-                UciOption {
-                    name: "Qself.search.state.epth".to_string(),
-                    default: "2".to_string(),
-                    option_type: UciOptionType::Spin,
-                    min: 0,
-                    max: 10,
-                },
-                UciOption {
-                    name: "RFPDepth".to_string(),
-                    default: "7".to_string(),
-                    option_type: UciOptionType::Spin,
-                    min: 1,
-                    max: 10,
-                },
-                UciOption {
-                    name: "RFPDepthMultiplier".to_string(),
-                    default: "50".to_string(),
-                    option_type: UciOptionType::Spin,
-                    min: 0,
-                    max: 100,
-                },
-                UciOption {
-                    name: "MOTTEntryValue".to_string(),
-                    default: "200".to_string(),
-                    option_type: UciOptionType::Spin,
-                    min: 50,
-                    max: 350,
-                },
-                UciOption {
-                    name: "MOCaptureValue".to_string(),
-                    default: "50".to_string(),
-                    option_type: UciOptionType::Spin,
-                    min: 10,
-                    max: 100,
-                },
-                UciOption {
-                    name: "MOKillerMoveValue".to_string(),
-                    default: "100".to_string(),
-                    option_type: UciOptionType::Spin,
-                    min: 50,
-                    max: 200,
-                },
-            ],
         }
     }
 }
@@ -122,7 +33,7 @@ impl UciController {
     /// Parses a UCI command string and processes it.
     ///
     /// # Arguments
-    /// * `command` - String containing the UCI command to process
+    /// * `command` - string containing the UCI command to process
     pub fn parse_command(&mut self, command: &str) {
         let tokens_vec: Vec<&str> = command.split_whitespace().collect();
         let mut tokens: Queue<&str> = queue![];
@@ -408,9 +319,8 @@ impl UciController {
         }
 
         match name {
-            // TODO: Implement option handling
-            "MoveOverhead" => Logger::log("info string set move overhead"),
-            "Threads" => Logger::log("info string set threads"),
+            "MoveOverhead" => Logger::log("info string MoveOverhead is not yet supported."),
+            "Threads" => Logger::log("info string Multithreading is not yet supported."),
             "Hash" => {
                 let size = value.parse::<u32>().unwrap();
                 let bytes = size * 1024 * 1024;
@@ -420,8 +330,39 @@ impl UciController {
             }
             "QSearchDepth" => self.search.state.cfg.qsearch_depth = value.parse::<u8>().unwrap(),
             "RFPDepth" => self.search.state.cfg.rfp_depth = value.parse::<u8>().unwrap(),
-            "RFPDepthMultiplier" => {
-                self.search.state.cfg.rfp_depth_multiplier = value.parse::<i32>().unwrap()
+            "RFPBaseMargin" => {
+                self.search.state.cfg.rfp_base_margin = value.parse::<i32>().unwrap()
+            }
+            "FRPReductionImproving" => {
+                self.search.state.cfg.rfp_reduction_improving = value.parse::<i32>().unwrap()
+            }
+            "NMPDepth" => self.search.state.cfg.nmp_depth = value.parse::<u8>().unwrap(),
+            "NMPMargin" => self.search.state.cfg.nmp_margin = value.parse::<u8>().unwrap(),
+            "NMPDivisor" => self.search.state.cfg.nmp_divisor = value.parse::<u8>().unwrap(),
+            "NMPDivisorImproving" => {
+                self.search.state.cfg.nmp_divisor_improving = value.parse::<u8>().unwrap()
+            }
+            "LMPMoveMargin" => {
+                self.search.state.cfg.lmp_move_margin = value.parse::<usize>().unwrap()
+            }
+            "LMPDepthFactor" => {
+                self.search.state.cfg.lmp_depth_factor = value.parse::<u8>().unwrap()
+            }
+            "LMRDepth" => self.search.state.cfg.lmr_depth = value.parse::<u8>().unwrap(),
+            "LMRMoveMargin" => {
+                self.search.state.cfg.lmr_move_margin = value.parse::<usize>().unwrap()
+            }
+            "LMRQuietMargin" => {
+                self.search.state.cfg.lmr_quiet_margin = value.parse::<f64>().unwrap()
+            }
+            "LMRQuietDivisor" => {
+                self.search.state.cfg.lmr_quiet_divisor = value.parse::<f64>().unwrap()
+            }
+            "LMRBaseMargin" => {
+                self.search.state.cfg.lmr_base_margin = value.parse::<f64>().unwrap()
+            }
+            "LMRBaseDivisor" => {
+                self.search.state.cfg.lmr_base_divisor = value.parse::<f64>().unwrap()
             }
             "MOTTEntryValue" => {
                 self.search.state.cfg.mo_tt_entry_value = value.parse::<i32>().unwrap()
@@ -429,9 +370,16 @@ impl UciController {
             "MOCaptureValue" => {
                 self.search.state.cfg.mo_capture_value = value.parse::<i32>().unwrap()
             }
-            "MOKillerMoveValue" => {
-                self.search.state.cfg.mo_killer_move_value = value.parse::<i32>().unwrap()
+            "MOKillerValue" => {
+                self.search.state.cfg.mo_killer_value = value.parse::<i32>().unwrap()
             }
+            "TCTimeDivisor" => {
+                self.search.state.cfg.tc_time_divisor = value.parse::<u64>().unwrap()
+            }
+            "TCElapsedFactor" => {
+                self.search.state.cfg.tc_elapsed_factor = value.parse::<i64>().unwrap()
+            }
+
             _ => Logger::log(&format!("info string unknown option: {}", name)),
         }
     }
@@ -467,20 +415,32 @@ impl UciController {
         Logger::log(r#"id name Pluto"#);
         Logger::log(r#"id author CastledChess"#);
 
-        for option in &self.options {
-            let type_str = match option.option_type {
-                UciOptionType::Check => "check",
-                UciOptionType::Spin => "spin",
-                UciOptionType::Combo => "combo",
-                UciOptionType::Button => "button",
-                UciOptionType::String => "string",
-            };
+        Logger::log("option name MoveOverhead type spin default 0 min 0 max 10000");
+        Logger::log("option name Threads type spin default 1 min 1 max 1");
+        Logger::log("option name Hash type spin default 255 min 1 max 1024");
 
-            Logger::log(&format!(
-                "option name {} type {} default {} min {} max {}",
-                option.name, type_str, option.default, option.min, option.max
-            ));
-        }
+        // Values to tune
+        Logger::log("option name QSearchDepth type spin default 5 min 1 max 20");
+        Logger::log("option name RFPDepth type spin default 4 min 1 max 20");
+        Logger::log("option name RFPBaseMargin type spin default 56 min 1 max 200");
+        Logger::log("option name RFPReductionImproving type spin default 28 min 1 max 200");
+        Logger::log("option name NMPDepth type spin default 3 min 1 max 20");
+        Logger::log("option name NMPMargin type spin default 4 min 1 max 20");
+        Logger::log("option name NMPDivisor type spin default 4 min 1 max 20");
+        Logger::log("option name NMPDivisorImproving type spin default 2 min 1 max 20");
+        Logger::log("option name LMPMoveMargin type spin default 2 min 1 max 20");
+        Logger::log("option name LMPDepthFactor type spin default 3 min 1 max 20");
+        Logger::log("option name LMRDepth type spin default 2 min 1 max 20");
+        Logger::log("option name LMRMoveMargin type spin default 1 min 1 max 20");
+        Logger::log("option name LMRQuietMargin type string default 0.7");
+        Logger::log("option name LMRQuietDivisor type string default 2.4");
+        Logger::log("option name LMRBaseMargin type string default 0.7");
+        Logger::log("option name LMRBaseDivisor type string default 3.0");
+        Logger::log("option name MOTTEntryValue type spin default 228 min 0 max 500");
+        Logger::log("option name MOCaptureValue type spin default 48 min 0 max 500");
+        Logger::log("option name MOKillerValue type spin default 80 min 0 max 500");
+        Logger::log("option name TCTimeDivisor type spin default 30 min 2 max 100");
+        Logger::log("option name TCElapsedFactor type spin default 2 min 1 max 10");
 
         Logger::log(r#"uciok"#);
     }
