@@ -27,8 +27,6 @@ pub fn main() {
         .spawn(move || {
             let mut uci_controller = UciController::default();
 
-            uci_controller.parse_command("uci");
-
             while let Ok(command) = rx.recv() {
                 uci_controller.parse_command(&command);
             }

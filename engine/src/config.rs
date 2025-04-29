@@ -2,7 +2,7 @@
 //! Handles loading and parsing of engine settings from TOML configuration file.
 
 use serde_derive::Deserialize;
-use std::process::exit;
+use std::{process::exit, usize};
 /// Wrapper structure for the TOML configuration data.
 /// Used for deserializing the configuration file.
 #[derive(Deserialize)]
@@ -14,19 +14,26 @@ pub struct Data {
 /// Main configuration structure containing engine parameters.
 #[derive(Deserialize)]
 pub struct Config {
-    /// Maximum depth for quiescence search in plies
-    pub qsearch_depth: u8,
-    /// Base depth for Reverse Futility Pruning (RFP)
-    pub rfp_depth: u8,
-    /// Multiplier applied to RFP depth calculations
-    pub rfp_depth_multiplier: i32,
-    /// Size of the transposition table in bytes
     pub tt_size: usize,
-    /// Value threshold for move ordering using transposition table entries
+    pub qsearch_depth: u8,
+    pub rfp_depth: u8,
+    pub rfp_base_margin: i32,
+    pub nmp_depth: u8,
+    pub nmp_margin: u8,
+    pub nmp_divisor: u8,
+    pub lmp_move_margin: usize,
+    pub lmp_depth_factor: u8,
+    pub lmr_depth: u8,
+    pub lmr_move_margin: usize,
+    pub lmr_quiet_margin: f64,
+    pub lmr_quiet_divisor: f64,
+    pub lmr_base_margin: f64,
+    pub lmr_base_divisor: f64,
     pub mo_tt_entry_value: i32,
-    /// Value bonus applied to captures during move ordering
     pub mo_capture_value: i32,
-    pub mo_killer_move_value: i32,
+    pub mo_killer_value: i32,
+    pub tc_time_divisor: u64,
+    pub tc_elapsed_factor: i64,
 }
 
 impl Config {
@@ -49,8 +56,8 @@ impl Config {
 
         let data: Data = match toml::from_str(&contents) {
             Ok(d) => d,
-            Err(_) => {
-                eprintln!("Unable to load data from `{}`", filename);
+            Err(e) => {
+                eprintln!("Unable to load data from `{}` {:?}", filename, e);
                 exit(1);
             }
         };

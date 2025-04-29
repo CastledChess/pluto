@@ -1,8 +1,21 @@
 [config]
+tt_size = 11141120 # 255 * 1024 * 1024 / 24 (255MB) 
 qsearch_depth = 5
 rfp_depth = 4
-rfp_depth_multiplier = 56
-tt_size = 0x7FFFFF
+rfp_base_margin = 56
+nmp_depth = 3
+nmp_margin = 4
+nmp_divisor = 4
+lmp_move_margin = 2
+lmp_depth_factor = 3
+lmr_depth = 2
+lmr_move_margin = 1
+lmr_quiet_margin = 0.7
+lmr_quiet_divisor = 2.4
+lmr_base_margin = 0.7
+lmr_base_divisor = 3.0
 mo_tt_entry_value = 228
 mo_capture_value = 48
-mo_killer_move_value = 80
+mo_killer_value = 80
+tc_time_divisor = 30
+tc_elapsed_factor = 2

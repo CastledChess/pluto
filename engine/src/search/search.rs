@@ -1,4 +1,5 @@
 use std::cmp::max;
+use std::cmp::min;
 
 use crate::bound::Bound;
 use crate::eval::Eval;
@@ -111,7 +112,9 @@ impl Search {
     /// Starts the search process using iterative deepening.
     /// Prints search information and best move when complete.
     pub fn go(&mut self, print: bool) {
-        self.state.tc.setup(&self.state.params, &self.state.game);
+        self.state
+            .tc
+            .setup(&self.state.params, &self.state.game, &self.state.cfg);
         self.state.hist.new_search();
         self.state.info.nodes = 0;
         self.state.tt.new_search();
@@ -121,7 +124,8 @@ impl Search {
         /* Iterative deepening */
         for current_depth in 0..self.state.params.depth {
             if TimeMode::is_finite(&self.state.tc.time_mode)
-                && (self.state.tc.elapsed() * 2) as u128 > self.state.tc.play_time
+                && (self.state.tc.elapsed() * self.state.cfg.tc_elapsed_factor) as u128
+                    > self.state.tc.play_time
             {
                 break;
             }
@@ -194,8 +198,8 @@ impl Search {
             && !is_root
             && entry.depth >= depth
             && (entry.bound == Bound::Exact
-            || (entry.bound == Bound::Alpha && entry.score <= alpha)
-            || (entry.bound == Bound::Beta && entry.score >= beta))
+                || (entry.bound == Bound::Alpha && entry.score <= alpha)
+                || (entry.bound == Bound::Beta && entry.score >= beta))
         {
             return entry.score;
         }
@@ -204,14 +208,14 @@ impl Search {
 
         if ply > 0
             && self
-            .state
-            .history
-            .iter()
-            .rev()
-            .skip(1)
-            .filter(|&&h| h == position_key)
-            .count()
-            >= 1
+                .state
+                .history
+                .iter()
+                .rev()
+                .skip(1)
+                .filter(|&&h| h == position_key)
+                .count()
+                >= 1
         {
             return 0;
         }
@@ -221,8 +225,8 @@ impl Search {
 
         if !is_check {
             /* Null Move Pruning */
-            if depth > 3 && !is_pv && ply > 0 && Eval::has_pieces(pos) {
-                let r = (4 + depth / 4).min(depth);
+            if depth > self.state.cfg.nmp_depth && !is_pv && ply > 0 && Eval::has_pieces(pos) {
+                let r = (self.state.cfg.nmp_margin + depth / self.state.cfg.nmp_divisor).min(depth);
                 let pos = pos.clone().swap_turn().unwrap();
                 let score = -self.negamax(&pos, depth - r, -beta, -beta + 1, ply + 1);
 
@@ -233,7 +237,7 @@ impl Search {
 
             /* Reverse Futility Pruning */
             if !is_pv && depth <= self.state.cfg.rfp_depth {
-                let score = static_eval - self.state.cfg.rfp_depth_multiplier * depth as i32;
+                let score = static_eval - self.state.cfg.rfp_base_margin * depth as i32;
                 if score >= beta {
                     return static_eval;
                 }
@@ -258,7 +262,13 @@ impl Search {
         for (i, move_index) in mp.enumerate() {
             let m = &moves[move_index];
 
-            if !m.is_capture() && !is_pv && !m.is_promotion() && !is_check && i >= 2 + (3 * depth) as usize {
+            if !m.is_capture()
+                && !is_pv
+                && !m.is_promotion()
+                && !is_check
+                && i >= self.state.cfg.lmp_move_margin
+                    + (self.state.cfg.lmp_depth_factor * depth) as usize
+            {
                 continue;
             }
 
@@ -268,13 +278,25 @@ impl Search {
             let mut score: i32;
             let mut r = 1;
 
-            if depth >= 2 && i >= 1 && !pos.is_check() {
+            if depth >= self.state.cfg.lmr_depth
+                && i >= self.state.cfg.lmr_move_margin
+                && !pos.is_check()
+            {
                 r = match m {
                     m if m.is_capture() || m.is_promotion() => {
-                        max(1, (0.7 + (depth as f64).ln() * (i as f64).ln() / 3.0) as u8)
+                        (self.state.cfg.lmr_base_margin
+                            + (depth as f64).ln() * (i as f64).ln()
+                                / self.state.cfg.lmr_base_divisor) as u8
                     }
-                    _ => max(1, (0.7 + (depth as f64).ln() * (i as f64).ln() / 2.4) as u8),
+
+                    _ => {
+                        (self.state.cfg.lmr_quiet_margin
+                            + (depth as f64).ln() * (i as f64).ln()
+                                / self.state.cfg.lmr_quiet_divisor) as u8
+                    }
                 };
+
+                r = max(min(1, r), depth);
             }
             /* Principal Variation Search */
             match i {

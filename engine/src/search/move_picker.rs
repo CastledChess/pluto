@@ -60,7 +60,7 @@ impl MovePicker {
         }
 
         if state.km.get(ply).contains(m) {
-            return state.cfg.mo_killer_move_value * MO_FACTOR;
+            return state.cfg.mo_killer_value * MO_FACTOR;
         }
 
         if m.is_promotion() {
