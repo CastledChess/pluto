@@ -5,6 +5,7 @@ use crate::logger::Logger;
 use crate::nnue::NNUEState;
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 use crate::postMessage;
+use crate::search;
 use crate::search::search::Search;
 use crate::search::tt::TranspositionTable;
 use crate::time_control::time_mode::TimeMode;
@@ -226,7 +227,7 @@ impl UciController {
     /// * `tokens` - Queue containing moves to apply
     fn handle_position_startpos(&mut self, tokens: &mut Queue<&str>) {
         self.search.state.game = Chess::default();
-        self.search.state.history.clear();
+        self.search.state.hstack.clear();
 
         if let Ok(moves) = tokens.remove() {
             if moves != "moves" {
@@ -239,11 +240,12 @@ impl UciController {
                 let legal = uci_move.unwrap().to_move(&game).ok().unwrap();
 
                 self.search.state.game = game.play(&legal).unwrap();
-                self.search.state.history.push(
+                self.search.state.hstack.push(
                     self.search
                         .state
                         .game
                         .zobrist_hash(shakmaty::EnPassantMode::Legal),
+                    None,
                 )
             }
         }
@@ -277,7 +279,7 @@ impl UciController {
         let fen: Fen = fen_vec.join(" ").as_str().parse().ok().unwrap();
 
         self.search.state.game = fen.into_position(CastlingMode::Standard).ok().unwrap();
-        self.search.state.history.clear();
+        self.search.state.hstack.clear();
 
         if token == "moves" {
             while let Ok(move_str) = tokens.remove() {
@@ -286,11 +288,12 @@ impl UciController {
                 let legal = uci_move.unwrap().to_move(&game).ok().unwrap();
 
                 self.search.state.game = game.play(&legal).unwrap();
-                self.search.state.history.push(
+                self.search.state.hstack.push(
                     self.search
                         .state
                         .game
                         .zobrist_hash(shakmaty::EnPassantMode::Legal),
+                    None,
                 )
             }
         }
@@ -331,9 +334,15 @@ impl UciController {
             "RFPBaseMargin" => {
                 self.search.state.cfg.rfp_base_margin = value.parse::<i32>().unwrap()
             }
+            "FRPReductionImproving" => {
+                self.search.state.cfg.rfp_reduction_improving = value.parse::<i32>().unwrap()
+            }
             "NMPDepth" => self.search.state.cfg.nmp_depth = value.parse::<u8>().unwrap(),
             "NMPMargin" => self.search.state.cfg.nmp_margin = value.parse::<u8>().unwrap(),
             "NMPDivisor" => self.search.state.cfg.nmp_divisor = value.parse::<u8>().unwrap(),
+            "NMPDivisorImproving" => {
+                self.search.state.cfg.nmp_divisor_improving = value.parse::<u8>().unwrap()
+            }
             "LMPMoveMargin" => {
                 self.search.state.cfg.lmp_move_margin = value.parse::<usize>().unwrap()
             }
@@ -414,10 +423,12 @@ impl UciController {
         // Values to tune
         Logger::log("option name QSearchDepth type Spin default 5 min 1 max 20");
         Logger::log("option name RFPDepth type Spin default 4 min 1 max 20");
-        Logger::log("option name RFPBaseMargin type Spin default 56 min 0 max 500");
+        Logger::log("option name RFPBaseMargin type Spin default 56 min 1 max 200");
+        Logger::log("option name RFPReductionImproving type Spin default 28 min 1 max 200");
         Logger::log("option name NMPDepth type Spin default 3 min 1 max 20");
         Logger::log("option name NMPMargin type Spin default 4 min 1 max 20");
         Logger::log("option name NMPDivisor type Spin default 4 min 1 max 20");
+        Logger::log("option name NMPDivisorImproving type Spin default 2 min 1 max 20");
         Logger::log("option name LMPMoveMargin type Spin default 2 min 1 max 20");
         Logger::log("option name LMPDepthFactor type Spin default 3 min 1 max 20");
         Logger::log("option name LMRDepth type Spin default 2 min 1 max 20");
