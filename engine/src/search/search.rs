@@ -121,7 +121,7 @@ impl Search {
         /* Iterative deepening */
         for current_depth in 0..self.state.params.depth {
             if TimeMode::is_finite(&self.state.tc.time_mode)
-                && (self.state.tc.elapsed() * self.state.cfg.tc_elapsed_factor) as u128
+                && (self.state.tc.elapsed() * self.state.cfg.tc_elapsed_factor.value) as u128
                     > self.state.tc.play_time
             {
                 break;
@@ -180,7 +180,7 @@ impl Search {
         }
 
         if depth == 0 {
-            return self.quiesce(pos, alpha, beta, self.state.cfg.qsearch_depth);
+            return self.quiesce(pos, alpha, beta, self.state.cfg.qsearch_depth.value);
         }
 
         self.state.info.nodes += 1;
@@ -225,14 +225,14 @@ impl Search {
 
         if !is_check && !is_pv {
             /* Null Move Pruning */
-            if depth > self.state.cfg.nmp_depth && ply > 0 && Eval::has_pieces(pos) {
+            if depth > self.state.cfg.nmp_depth.value && ply > 0 && Eval::has_pieces(pos) {
                 let r = match improving {
-                    true => (self.state.cfg.nmp_margin
-                        + depth / self.state.cfg.nmp_divisor_improving)
+                    true => (self.state.cfg.nmp_margin.value
+                        + depth / self.state.cfg.nmp_divisor_improving.value)
                         .min(depth),
-                    false => {
-                        (self.state.cfg.nmp_margin + depth / self.state.cfg.nmp_divisor).min(depth)
-                    }
+                    false => (self.state.cfg.nmp_margin.value
+                        + depth / self.state.cfg.nmp_divisor.value)
+                        .min(depth),
                 };
 
                 let pos = pos.clone().swap_turn().unwrap();
@@ -244,13 +244,13 @@ impl Search {
             }
 
             /* Reverse Futility Pruning */
-            if depth <= self.state.cfg.rfp_depth {
+            if depth <= self.state.cfg.rfp_depth.value {
                 let rfp_margin = match improving {
                     true => {
-                        self.state.cfg.rfp_base_margin * depth as i32
-                            - self.state.cfg.rfp_reduction_improving
+                        self.state.cfg.rfp_base_margin.value * depth as i32
+                            - self.state.cfg.rfp_reduction_improving.value
                     }
-                    false => self.state.cfg.rfp_base_margin * depth as i32,
+                    false => self.state.cfg.rfp_base_margin.value * depth as i32,
                 };
 
                 if static_eval >= beta + rfp_margin {
@@ -281,8 +281,8 @@ impl Search {
                 && !is_pv
                 && !m.is_promotion()
                 && !is_check
-                && i >= self.state.cfg.lmp_move_margin
-                    + (self.state.cfg.lmp_depth_factor * depth) as usize
+                && i >= self.state.cfg.lmp_move_margin.value
+                    + (self.state.cfg.lmp_depth_factor.value * depth) as usize
             {
                 continue;
             }
@@ -293,21 +293,23 @@ impl Search {
             let mut score: i32;
             let mut r = 1;
 
-            if depth >= self.state.cfg.lmr_depth
-                && i >= self.state.cfg.lmr_move_margin
+            if depth >= self.state.cfg.lmr_depth.value
+                && i >= self.state.cfg.lmr_move_margin.value
                 && !pos.is_check()
             {
                 r = match m {
                     m if m.is_capture() || m.is_promotion() => {
-                        (self.state.cfg.lmr_base_margin
+                        (self.state.cfg.lmr_base_margin.value
                             + (depth as f64).ln() * (i as f64).ln()
-                                / self.state.cfg.lmr_base_divisor) as u8
+                                / self.state.cfg.lmr_base_divisor.value)
+                            as u8
                     }
 
                     _ => {
-                        (self.state.cfg.lmr_quiet_margin
+                        (self.state.cfg.lmr_quiet_margin.value
                             + (depth as f64).ln() * (i as f64).ln()
-                                / self.state.cfg.lmr_quiet_divisor) as u8
+                                / self.state.cfg.lmr_quiet_divisor.value)
+                            as u8
                     }
                 }
                 .clamp(1, depth);
