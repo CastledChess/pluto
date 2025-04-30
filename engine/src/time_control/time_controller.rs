@@ -29,8 +29,8 @@ impl TimeController {
         self.play_time = match self.time_mode {
             TimeMode::MoveTime => params.move_time,
             TimeMode::WOrBTime => match game.turn() {
-                Color::White => params.w_time / cfg.tc_time_divisor as u128,
-                Color::Black => params.b_time / cfg.tc_time_divisor as u128,
+                Color::White => params.w_time / cfg.tc_time_divisor.value as u128,
+                Color::Black => params.b_time / cfg.tc_time_divisor.value as u128,
             },
             _ => 0,
         };

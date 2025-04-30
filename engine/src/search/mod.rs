@@ -16,8 +16,9 @@ use pv::PvTable;
 use shakmaty::{Chess, Position};
 use tt::TranspositionTable;
 
+use crate::config::Config;
 use crate::search::history_stack::HistoryStack;
-use crate::{config::Config, nnue::NNUEState, time_control::time_controller::TimeController};
+use crate::{nnue::NNUEState, time_control::time_controller::TimeController};
 
 pub struct SearchState {
     pub game: Chess,
@@ -27,19 +28,19 @@ pub struct SearchState {
     pub nnue: NNUEState,
     pub tt: TranspositionTable,
     pub hstack: HistoryStack,
-    pub cfg: Config,
     pub pv: PvTable,
     pub km: Killers,
+    pub cfg: Config,
     pub hist: HistoryTable,
 }
 
 impl SearchState {
     pub fn new() -> Self {
-        let cfg = Config::load().unwrap();
+        let cfg = Config::default();
 
         Self {
             game: Chess::default(),
-            tt: TranspositionTable::new(cfg.tt_size),
+            tt: TranspositionTable::new(cfg.hash.value * 1024 * 1024 / 24),
             info: SearchInfo::default(),
             tc: TimeController::default(),
             params: SearchParams::default(),

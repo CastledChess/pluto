@@ -56,6 +56,7 @@ impl UciController {
         self.search.state.params.depth = u8::MAX;
 
         match first_token {
+            "print" => self.handle_print(tokens),
             "bench" => self.handle_bench(),
             "uci" => self.handle_uci(),
             "isready" => self.handle_isready(),
@@ -66,6 +67,48 @@ impl UciController {
             "go" => self.handle_go(tokens),
             _ => Logger::log(&format!("Unknown command: {}", first_token)),
         }
+    }
+
+    fn handle_print(&self, tokens: &mut Queue<&str>) {
+        let scope = tokens.remove().unwrap();
+
+        match scope {
+            "spsa" => self.handle_print_spsa(tokens),
+            _ => Logger::log(&format!("unknown scope: {}", scope)),
+        }
+    }
+
+    fn handle_print_spsa(&self, tokens: &mut Queue<&str>) {
+        let target = tokens.remove().unwrap();
+
+        match target {
+            "workload" => self.handle_print_spsa_workload(),
+            _ => Logger::log(&format!("unknown target: {}", target)),
+        }
+    }
+
+    fn handle_print_spsa_workload(&self) {
+        Logger::log(&self.search.state.cfg.qsearch_depth.fmt_spsa());
+        Logger::log(&self.search.state.cfg.rfp_depth.fmt_spsa());
+        Logger::log(&self.search.state.cfg.rfp_base_margin.fmt_spsa());
+        Logger::log(&self.search.state.cfg.rfp_reduction_improving.fmt_spsa());
+        Logger::log(&self.search.state.cfg.nmp_depth.fmt_spsa());
+        Logger::log(&self.search.state.cfg.nmp_margin.fmt_spsa());
+        Logger::log(&self.search.state.cfg.nmp_divisor.fmt_spsa());
+        Logger::log(&self.search.state.cfg.nmp_divisor_improving.fmt_spsa());
+        Logger::log(&self.search.state.cfg.lmp_move_margin.fmt_spsa());
+        Logger::log(&self.search.state.cfg.lmp_depth_factor.fmt_spsa());
+        Logger::log(&self.search.state.cfg.lmr_depth.fmt_spsa());
+        Logger::log(&self.search.state.cfg.lmr_move_margin.fmt_spsa());
+        Logger::log(&self.search.state.cfg.lmr_quiet_margin.fmt_spsa());
+        Logger::log(&self.search.state.cfg.lmr_quiet_divisor.fmt_spsa());
+        Logger::log(&self.search.state.cfg.lmr_base_margin.fmt_spsa());
+        Logger::log(&self.search.state.cfg.lmr_base_divisor.fmt_spsa());
+        Logger::log(&self.search.state.cfg.mo_tt_entry_value.fmt_spsa());
+        Logger::log(&self.search.state.cfg.mo_capture_value.fmt_spsa());
+        Logger::log(&self.search.state.cfg.mo_killer_value.fmt_spsa());
+        Logger::log(&self.search.state.cfg.tc_time_divisor.fmt_spsa());
+        Logger::log(&self.search.state.cfg.tc_elapsed_factor.fmt_spsa());
     }
 
     fn handle_bench(&mut self) {
@@ -328,56 +371,58 @@ impl UciController {
 
                 self.search.state.tt = TranspositionTable::new(entries as usize);
             }
-            "QSearchDepth" => self.search.state.cfg.qsearch_depth = value.parse::<u8>().unwrap(),
-            "RFPDepth" => self.search.state.cfg.rfp_depth = value.parse::<u8>().unwrap(),
+            "QSearchDepth" => {
+                self.search.state.cfg.qsearch_depth.value = value.parse::<u8>().unwrap()
+            }
+            "RFPDepth" => self.search.state.cfg.rfp_depth.value = value.parse::<u8>().unwrap(),
             "RFPBaseMargin" => {
-                self.search.state.cfg.rfp_base_margin = value.parse::<i32>().unwrap()
+                self.search.state.cfg.rfp_base_margin.value = value.parse::<i32>().unwrap()
             }
             "FRPReductionImproving" => {
-                self.search.state.cfg.rfp_reduction_improving = value.parse::<i32>().unwrap()
+                self.search.state.cfg.rfp_reduction_improving.value = value.parse::<i32>().unwrap()
             }
-            "NMPDepth" => self.search.state.cfg.nmp_depth = value.parse::<u8>().unwrap(),
-            "NMPMargin" => self.search.state.cfg.nmp_margin = value.parse::<u8>().unwrap(),
-            "NMPDivisor" => self.search.state.cfg.nmp_divisor = value.parse::<u8>().unwrap(),
+            "NMPDepth" => self.search.state.cfg.nmp_depth.value = value.parse::<u8>().unwrap(),
+            "NMPMargin" => self.search.state.cfg.nmp_margin.value = value.parse::<u8>().unwrap(),
+            "NMPDivisor" => self.search.state.cfg.nmp_divisor.value = value.parse::<u8>().unwrap(),
             "NMPDivisorImproving" => {
-                self.search.state.cfg.nmp_divisor_improving = value.parse::<u8>().unwrap()
+                self.search.state.cfg.nmp_divisor_improving.value = value.parse::<u8>().unwrap()
             }
             "LMPMoveMargin" => {
-                self.search.state.cfg.lmp_move_margin = value.parse::<usize>().unwrap()
+                self.search.state.cfg.lmp_move_margin.value = value.parse::<usize>().unwrap()
             }
             "LMPDepthFactor" => {
-                self.search.state.cfg.lmp_depth_factor = value.parse::<u8>().unwrap()
+                self.search.state.cfg.lmp_depth_factor.value = value.parse::<u8>().unwrap()
             }
-            "LMRDepth" => self.search.state.cfg.lmr_depth = value.parse::<u8>().unwrap(),
+            "LMRDepth" => self.search.state.cfg.lmr_depth.value = value.parse::<u8>().unwrap(),
             "LMRMoveMargin" => {
-                self.search.state.cfg.lmr_move_margin = value.parse::<usize>().unwrap()
+                self.search.state.cfg.lmr_move_margin.value = value.parse::<usize>().unwrap()
             }
             "LMRQuietMargin" => {
-                self.search.state.cfg.lmr_quiet_margin = value.parse::<f64>().unwrap()
+                self.search.state.cfg.lmr_quiet_margin.value = value.parse::<f64>().unwrap()
             }
             "LMRQuietDivisor" => {
-                self.search.state.cfg.lmr_quiet_divisor = value.parse::<f64>().unwrap()
+                self.search.state.cfg.lmr_quiet_divisor.value = value.parse::<f64>().unwrap()
             }
             "LMRBaseMargin" => {
-                self.search.state.cfg.lmr_base_margin = value.parse::<f64>().unwrap()
+                self.search.state.cfg.lmr_base_margin.value = value.parse::<f64>().unwrap()
             }
             "LMRBaseDivisor" => {
-                self.search.state.cfg.lmr_base_divisor = value.parse::<f64>().unwrap()
+                self.search.state.cfg.lmr_base_divisor.value = value.parse::<f64>().unwrap()
             }
             "MOTTEntryValue" => {
-                self.search.state.cfg.mo_tt_entry_value = value.parse::<i32>().unwrap()
+                self.search.state.cfg.mo_tt_entry_value.value = value.parse::<i32>().unwrap()
             }
             "MOCaptureValue" => {
-                self.search.state.cfg.mo_capture_value = value.parse::<i32>().unwrap()
+                self.search.state.cfg.mo_capture_value.value = value.parse::<i32>().unwrap()
             }
             "MOKillerValue" => {
-                self.search.state.cfg.mo_killer_value = value.parse::<i32>().unwrap()
+                self.search.state.cfg.mo_killer_value.value = value.parse::<i32>().unwrap()
             }
             "TCTimeDivisor" => {
-                self.search.state.cfg.tc_time_divisor = value.parse::<u64>().unwrap()
+                self.search.state.cfg.tc_time_divisor.value = value.parse::<u64>().unwrap()
             }
             "TCElapsedFactor" => {
-                self.search.state.cfg.tc_elapsed_factor = value.parse::<i64>().unwrap()
+                self.search.state.cfg.tc_elapsed_factor.value = value.parse::<i64>().unwrap()
             }
 
             _ => Logger::log(&format!("info string unknown option: {}", name)),
@@ -415,32 +460,33 @@ impl UciController {
         Logger::log(r#"id name Pluto"#);
         Logger::log(r#"id author CastledChess"#);
 
-        Logger::log("option name MoveOverhead type spin default 0 min 0 max 10000");
-        Logger::log("option name Threads type spin default 1 min 1 max 1");
-        Logger::log("option name Hash type spin default 255 min 1 max 1024");
+        Logger::log(format!("{}", self.search.state.cfg.move_overhead).as_str());
+        Logger::log(format!("{}", self.search.state.cfg.threads).as_str());
+        Logger::log(format!("{}", self.search.state.cfg.hash).as_str());
 
         // Values to tune
-        Logger::log("option name QSearchDepth type spin default 5 min 1 max 20");
-        Logger::log("option name RFPDepth type spin default 4 min 1 max 20");
-        Logger::log("option name RFPBaseMargin type spin default 56 min 1 max 200");
-        Logger::log("option name RFPReductionImproving type spin default 28 min 1 max 200");
-        Logger::log("option name NMPDepth type spin default 3 min 1 max 20");
-        Logger::log("option name NMPMargin type spin default 4 min 1 max 20");
-        Logger::log("option name NMPDivisor type spin default 4 min 1 max 20");
-        Logger::log("option name NMPDivisorImproving type spin default 2 min 1 max 20");
-        Logger::log("option name LMPMoveMargin type spin default 2 min 1 max 20");
-        Logger::log("option name LMPDepthFactor type spin default 3 min 1 max 20");
-        Logger::log("option name LMRDepth type spin default 2 min 1 max 20");
-        Logger::log("option name LMRMoveMargin type spin default 1 min 1 max 20");
-        Logger::log("option name LMRQuietMargin type string default 0.7");
-        Logger::log("option name LMRQuietDivisor type string default 2.4");
-        Logger::log("option name LMRBaseMargin type string default 0.7");
-        Logger::log("option name LMRBaseDivisor type string default 3.0");
-        Logger::log("option name MOTTEntryValue type spin default 228 min 0 max 500");
-        Logger::log("option name MOCaptureValue type spin default 48 min 0 max 500");
-        Logger::log("option name MOKillerValue type spin default 80 min 0 max 500");
-        Logger::log("option name TCTimeDivisor type spin default 30 min 2 max 100");
-        Logger::log("option name TCElapsedFactor type spin default 2 min 1 max 10");
+        Logger::log(format!("{}", self.search.state.cfg.qsearch_depth).as_str());
+        Logger::log(format!("{}", self.search.state.cfg.rfp_depth).as_str());
+        Logger::log(format!("{}", self.search.state.cfg.rfp_base_margin).as_str());
+        Logger::log(format!("{}", self.search.state.cfg.rfp_reduction_improving).as_str());
+        Logger::log(format!("{}", self.search.state.cfg.nmp_depth).as_str());
+        Logger::log(format!("{}", self.search.state.cfg.nmp_margin).as_str());
+        Logger::log(format!("{}", self.search.state.cfg.nmp_divisor).as_str());
+        Logger::log(format!("{}", self.search.state.cfg.nmp_divisor_improving).as_str());
+        Logger::log(format!("{}", self.search.state.cfg.lmp_move_margin).as_str());
+        Logger::log(format!("{}", self.search.state.cfg.lmp_depth_factor).as_str());
+        Logger::log(format!("{}", self.search.state.cfg.lmr_depth).as_str());
+        Logger::log(format!("{}", self.search.state.cfg.lmr_move_margin).as_str());
+        Logger::log(format!("{}", self.search.state.cfg.lmr_quiet_margin).as_str());
+        Logger::log(format!("{}", self.search.state.cfg.lmr_quiet_divisor).as_str());
+        Logger::log(format!("{}", self.search.state.cfg.lmr_base_margin).as_str());
+        Logger::log(format!("{}", self.search.state.cfg.lmr_base_divisor).as_str());
+        Logger::log(format!("{}", self.search.state.cfg.mo_tt_entry_value).as_str());
+        Logger::log(format!("{}", self.search.state.cfg.mo_capture_value).as_str());
+        Logger::log(format!("{}", self.search.state.cfg.mo_killer_value).as_str());
+        Logger::log(format!("{}", self.search.state.cfg.tc_time_divisor).as_str());
+        Logger::log(format!("{}", self.search.state.cfg.tc_elapsed_factor).as_str());
+        // Values to tune
 
         Logger::log(r#"uciok"#);
     }

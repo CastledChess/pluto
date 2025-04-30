@@ -50,17 +50,17 @@ impl MovePicker {
         m: &Move,
     ) -> i32 {
         if *m == entry._move {
-            return state.cfg.mo_tt_entry_value * MO_FACTOR;
+            return state.cfg.mo_tt_entry_value.value * MO_FACTOR;
         }
 
         if m.is_capture() {
             let piece_value = m.role() as i32;
             let capture_value = m.capture().unwrap() as i32;
-            return (state.cfg.mo_capture_value * capture_value - piece_value) * MO_FACTOR;
+            return (state.cfg.mo_capture_value.value * capture_value - piece_value) * MO_FACTOR;
         }
 
         if state.km.get(ply).contains(m) {
-            return state.cfg.mo_killer_value * MO_FACTOR;
+            return state.cfg.mo_killer_value.value * MO_FACTOR;
         }
 
         if m.is_promotion() {
