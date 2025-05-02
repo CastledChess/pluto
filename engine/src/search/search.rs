@@ -311,8 +311,13 @@ impl Search {
                                 / self.state.cfg.lmr_quiet_divisor.value)
                             as u8
                     }
+                };
+
+                if !improving {
+                    r *= 2;
                 }
-                .clamp(1, depth);
+
+                r = r.clamp(1, depth);
             }
             /* Principal Variation Search */
             match i {
