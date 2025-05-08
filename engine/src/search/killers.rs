@@ -17,6 +17,7 @@ impl Killers {
 
     pub fn store(&mut self, ply: usize, m: Move) {
         if ply >= 64 {
+            return;
         }
 
         if !self.get(ply).contains(&m) {

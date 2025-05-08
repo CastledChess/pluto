@@ -268,11 +268,11 @@ impl Search {
 
         let moves = pos.legal_moves();
 
+        let mp = MovePicker::new(&moves, &self.state, &entry, ply);
+
         if !moves.contains(&entry._move) && depth > 1 {
             depth -= 1;
         }
-
-        let mp = MovePicker::new(&moves, &self.state, &entry, ply);
 
         /* Checkmate/Draw Detection */
         if moves.is_empty() {
@@ -287,9 +287,7 @@ impl Search {
         let mut skip_quiets = false;
         let mut best_move = &moves[0];
 
-        for (i, move_index) in mp.enumerate() {
-            let m = &moves[move_index];
-
+        for (i, m) in mp.enumerate() {
             if skip_quiets && (!m.is_promotion() && !m.is_capture()) {
                 continue;
             }
