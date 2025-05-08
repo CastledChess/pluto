@@ -172,7 +172,14 @@ impl Search {
     ///
     /// # Returns
     /// * Score of the position from the perspective of the side to move
-    fn negamax(&mut self, pos: &Chess, depth: u8, mut alpha: i32, beta: i32, ply: usize) -> i32 {
+    fn negamax(
+        &mut self,
+        pos: &Chess,
+        mut depth: u8,
+        mut alpha: i32,
+        beta: i32,
+        ply: usize,
+    ) -> i32 {
         self.state.pv.update_length(ply);
 
         if self.state.tc.is_time_up() {
@@ -260,6 +267,11 @@ impl Search {
         }
 
         let moves = pos.legal_moves();
+
+        if !moves.contains(&entry._move) && depth > 1 {
+            depth -= 1;
+        }
+
         let mp = MovePicker::new(&moves, &self.state, &entry, ply);
 
         /* Checkmate/Draw Detection */
