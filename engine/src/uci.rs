@@ -130,7 +130,7 @@ impl UciController {
             let game = fen.into_position(CastlingMode::Standard).ok().unwrap();
 
             self.search.state.game = game;
-            self.search.state.params.depth = 5;
+            self.search.state.params.depth = 14;
             self.search.state.tc.time_mode = TimeMode::Infinite;
 
             self.search.go(false);
@@ -378,8 +378,17 @@ impl UciController {
             "RFPBaseMargin" => {
                 self.search.state.cfg.rfp_base_margin.value = value.parse::<i32>().unwrap()
             }
-            "FRPReductionImproving" => {
+            "RFPReductionImproving" => {
                 self.search.state.cfg.rfp_reduction_improving.value = value.parse::<i32>().unwrap()
+            }
+            "FPDepthMargin" => {
+                self.search.state.cfg.fp_depth_margin.value = value.parse::<u8>().unwrap()
+            }
+            "FPBaseMargin" => {
+                self.search.state.cfg.fp_base_margin.value = value.parse::<i32>().unwrap()
+            }
+            "FPMarginDepthFactor" => {
+                self.search.state.cfg.fp_margin_depth_factor.value = value.parse::<i32>().unwrap()
             }
             "NMPDepth" => self.search.state.cfg.nmp_depth.value = value.parse::<u8>().unwrap(),
             "NMPMargin" => self.search.state.cfg.nmp_margin.value = value.parse::<u8>().unwrap(),
@@ -469,6 +478,9 @@ impl UciController {
         Logger::log(format!("{}", self.search.state.cfg.rfp_depth).as_str());
         Logger::log(format!("{}", self.search.state.cfg.rfp_base_margin).as_str());
         Logger::log(format!("{}", self.search.state.cfg.rfp_reduction_improving).as_str());
+        Logger::log(format!("{}", self.search.state.cfg.fp_base_margin).as_str());
+        Logger::log(format!("{}", self.search.state.cfg.fp_depth_margin).as_str());
+        Logger::log(format!("{}", self.search.state.cfg.fp_margin_depth_factor).as_str());
         Logger::log(format!("{}", self.search.state.cfg.nmp_depth).as_str());
         Logger::log(format!("{}", self.search.state.cfg.nmp_margin).as_str());
         Logger::log(format!("{}", self.search.state.cfg.nmp_divisor).as_str());

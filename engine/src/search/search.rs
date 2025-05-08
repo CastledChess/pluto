@@ -284,10 +284,15 @@ impl Search {
 
         let start_alpha = alpha;
         let mut best_score = -100000;
+        let mut skip_quiets = false;
         let mut best_move = &moves[0];
 
         for (i, move_index) in mp.enumerate() {
             let m = &moves[move_index];
+
+            if skip_quiets && (!m.is_promotion() && !m.is_capture()) {
+                continue;
+            }
 
             if !m.is_capture()
                 && !is_pv
@@ -331,6 +336,16 @@ impl Search {
 
                 r = r.clamp(1, depth);
             }
+
+            if depth - r <= self.state.cfg.fp_depth_margin.value
+                && static_eval
+                    + (self.state.cfg.fp_base_margin.value
+                        + self.state.cfg.fp_margin_depth_factor.value * (depth - r) as i32)
+                    < alpha
+            {
+                skip_quiets = true;
+            }
+
             /* Principal Variation Search */
             match i {
                 0 => score = -self.negamax(&pos, depth - 1, -beta, -alpha, ply + 1),
