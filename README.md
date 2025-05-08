@@ -6,10 +6,12 @@ by [Lxdovic](https://github.com/Lxdovic)
 ## Table of Contents
 
 - [About](#about)
+- [Strength](#strength)
+- [Testing](#testing)
 - [Features](#features)
 - [Building](#building)
-- [Usage](#usage)
-- [Documentation](#documentation)
+- [Contributors](#contributors)
+- [Credits](#credits)
 
 ## About
 
