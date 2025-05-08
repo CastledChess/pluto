@@ -310,7 +310,7 @@ impl Config {
                 name: "LMRBaseMargin",
                 kind: OptionKind::String,
                 value: 0.25,
-                min: 1.0,
+                min: 0.0,
                 max: 10.0,
             },
             lmr_base_divisor: OptionDescriptor {

@@ -92,6 +92,9 @@ impl UciController {
         Logger::log(&self.search.state.cfg.rfp_depth.fmt_spsa());
         Logger::log(&self.search.state.cfg.rfp_base_margin.fmt_spsa());
         Logger::log(&self.search.state.cfg.rfp_reduction_improving.fmt_spsa());
+        Logger::log(&self.search.state.cfg.fp_base_margin.fmt_spsa());
+        Logger::log(&self.search.state.cfg.fp_depth_margin.fmt_spsa());
+        Logger::log(&self.search.state.cfg.fp_margin_depth_factor.fmt_spsa());
         Logger::log(&self.search.state.cfg.nmp_depth.fmt_spsa());
         Logger::log(&self.search.state.cfg.nmp_margin.fmt_spsa());
         Logger::log(&self.search.state.cfg.nmp_divisor.fmt_spsa());
