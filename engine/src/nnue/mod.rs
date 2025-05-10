@@ -6,11 +6,8 @@ pub const QA: i16 = 255;
 pub const QAB: i16 = 255 * 64;
 pub const SCALE: i32 = 400;
 
-pub static NNUE: Network = unsafe {
-    std::mem::transmute(*include_bytes!(
-        "../../../bin/(768-512)x2-1_screlu-400.bin"
-    ))
-};
+pub static NNUE: Network =
+    unsafe { std::mem::transmute(*include_bytes!("../../../bin/(768-512)x2-1_screlu-400.bin")) };
 
 #[inline]
 /// Clipped ReLU - Activation Function.
@@ -98,17 +95,6 @@ impl NNUEState {
         }
 
         state
-    }
-
-    pub fn refresh(&mut self, board: &Board) {
-        self.current = 0;
-        self.stack[self.current] = AccumulatorCouple::default();
-
-        for sq in board.occupied().into_iter() {
-            let piece = board.piece_at(sq).unwrap();
-
-            self.manual_update::<ON>(piece, sq);
-        }
     }
 
     pub fn push(&mut self) {

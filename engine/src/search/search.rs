@@ -1,7 +1,6 @@
 use crate::bound::Bound;
 use crate::eval::Eval;
 use crate::logger::Logger;
-use crate::moves::DEFAULT_MOVE;
 use crate::nnue::OFF;
 use crate::nnue::ON;
 use crate::time_control::time_mode::TimeMode;
@@ -21,12 +20,7 @@ impl Search {
             state: SearchState::new(),
         }
     }
-    /// Makes a move on the board while updating NNUE (Neural Network) accumulator states.
-    /// This method should be used instead of regular make_move when NNUE evaluation is active.
-    ///
-    /// # Arguments
-    /// * `pos` - Mutable reference to the chess position
-    /// * `m` - Reference to the move to be played
+
     pub fn make_move(&mut self, pos: &mut Chess, m: &Move, eval: i32) {
         self.state.nnue.push();
         let turn = pos.turn();
@@ -99,15 +93,11 @@ impl Search {
             .push(pos.zobrist_hash(EnPassantMode::Legal), Some(eval));
     }
 
-    /// Reverts the last move made with make_move_nnue.
-    /// Restores NNUE state and removes last position from history.
     pub fn undo_move(&mut self) {
         self.state.nnue.pop();
         self.state.hstack.pop();
     }
 
-    /// Starts the search process using iterative deepening.
-    /// Prints search information and best move when complete.
     pub fn go(&mut self, print: bool) {
         self.state
             .tc
@@ -116,7 +106,7 @@ impl Search {
         self.state.info.nodes = 0;
         self.state.tt.new_search();
 
-        let mut best_move = DEFAULT_MOVE.clone();
+        let mut best_move = None;
 
         /* Iterative deepening */
         for current_depth in 0..self.state.params.depth {
@@ -135,7 +125,7 @@ impl Search {
                 break;
             }
 
-            best_move = self.state.pv.get_best_move().unwrap();
+            best_move = Some(self.state.pv.get_best_move().unwrap());
 
             let elapsed = self.state.tc.elapsed();
             let pv = self.state.pv.collect();
@@ -156,22 +146,11 @@ impl Search {
         if print {
             Logger::log(&format!(
                 "bestmove {}",
-                best_move.to_uci(CastlingMode::Standard)
+                best_move.unwrap().to_uci(CastlingMode::Standard)
             ));
         }
     }
 
-    /// Performs negamax search with alpha-beta pruning and various optimizations.
-    ///
-    /// # Arguments
-    /// * `pos` - Reference to current chess position
-    /// * `depth` - Remaining search depth
-    /// * `alpha` - Alpha value for alpha-beta pruning
-    /// * `beta` - Beta value for alpha-beta pruning
-    /// * `ply` - Current ply (half-move) in search
-    ///
-    /// # Returns
-    /// * Score of the position from the perspective of the side to move
     fn negamax(
         &mut self,
         pos: &Chess,
@@ -209,6 +188,8 @@ impl Search {
         }
 
         let static_eval = Eval::nnue_eval(&self.state.nnue, pos);
+
+        /* Improving */
         let improving = match ply {
             ply if ply < 2 => false,
             _ => {
@@ -223,6 +204,7 @@ impl Search {
             }
         };
 
+        /* Threefold Detection */
         if ply > 0 && self.state.hstack.count_zobrist(position_key) >= 1 {
             return 0;
         }
@@ -267,11 +249,13 @@ impl Search {
         }
 
         let moves = pos.legal_moves();
-
         let mp = MovePicker::new(&moves, &self.state, &entry, ply);
 
-        if !moves.contains(&entry._move) && depth > 1 {
-            depth -= 1;
+        /* Internal Iterative Reductions */
+        if let Some(tt_move) = entry._move {
+            if !moves.contains(&tt_move) && depth > 1 {
+                depth -= 1;
+            }
         }
 
         /* Checkmate/Draw Detection */
@@ -292,6 +276,7 @@ impl Search {
                 continue;
             }
 
+            /* Late Move Pruning */
             if !m.is_capture()
                 && !is_pv
                 && !m.is_promotion()
@@ -308,6 +293,7 @@ impl Search {
             let mut score: i32;
             let mut r = 1;
 
+            /* Late Move Reductions */
             if depth >= self.state.cfg.lmr_depth.value
                 && i >= self.state.cfg.lmr_move_margin.value
                 && !pos.is_check()
@@ -335,6 +321,7 @@ impl Search {
                 r = r.clamp(1, depth);
             }
 
+            /* Extended Futility Pruning */
             if depth - r <= self.state.cfg.fp_depth_margin.value
                 && static_eval
                     + (self.state.cfg.fp_base_margin.value
@@ -392,16 +379,6 @@ impl Search {
         best_score
     }
 
-    /// Performs quiescence search to evaluate tactical sequences.
-    ///
-    /// # Arguments
-    /// * `pos` - Reference to current chess position
-    /// * `alpha` - Alpha value for alpha-beta pruning
-    /// * `beta` - Beta value for alpha-beta pruning
-    /// * `limit` - Maximum remaining depth for quiescence search
-    ///
-    /// # Returns
-    /// * Static evaluation or tactical sequence evaluation
     fn quiesce(&mut self, pos: &Chess, mut alpha: i32, beta: i32, limit: u8) -> i32 {
         self.state.info.nodes += 1;
 

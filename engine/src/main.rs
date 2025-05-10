@@ -1,20 +1,16 @@
-//! CastledEngine - A UCI chess engine implementation in Rust.
-//! Main entry point and module declarations.
-
 use crate::uci::UciController;
 use std::process::exit;
 use std::sync::mpsc;
 use std::{env, io, thread};
 
-mod bound; // Position score bound types
-mod config; // Engine configuration settings
-mod eval; // Position evaluation
+mod bound;
+mod config;
+mod eval;
 mod logger;
-mod moves; // Move generation and handling
-mod nnue; // Neural Network evaluation
-mod search; // Search algorithm implementation
-mod time_control; // Time management
-mod uci; // Universal Chess Interface protocol
+mod nnue;
+mod search;
+mod time_control;
+mod uci;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn main() {
