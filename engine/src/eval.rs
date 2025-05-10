@@ -14,14 +14,7 @@ impl Eval {
 
         false
     }
-    /// Neural Network evaluation using NNUE architecture.
-    ///
-    /// # Arguments
-    /// * `state` - Current NNUE network state
-    /// * `pos` - Current chess position to evaluate
-    ///
-    /// # Returns
-    /// * Integer score from White's perspective
+
     pub fn nnue_eval(state: &NNUEState, pos: &Chess) -> i32 {
         #[rustfmt::skip]
         let (us, them) = match pos.turn() {

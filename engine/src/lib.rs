@@ -9,15 +9,14 @@ use wasm_bindgen::prelude::*;
 #[cfg(target_arch = "wasm32")]
 use web_sys::Worker;
 
-mod bound; // Position score bound types
-mod config; // Engine configuration settings
-mod eval; // Position evaluation
+mod bound;
+mod config;
+mod eval;
 mod logger;
-mod moves; // Move generation and handling
-mod nnue; // Neural Network evaluation
-mod search; // Search algorithm implementation
-mod time_control; // Time management
-mod uci; // Universal Chess Interface protocol
+mod nnue;
+mod search;
+mod time_control;
+mod uci;
 
 #[cfg(target_arch = "wasm32")]
 use std::sync::{LazyLock, Mutex};

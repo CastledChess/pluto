@@ -48,8 +48,10 @@ impl<'a> MovePicker<'a> {
         ply: usize,
         m: &Move,
     ) -> i32 {
-        if *m == entry._move {
-            return state.cfg.mo_tt_entry_value.value * MO_FACTOR;
+        if let Some(tt_move) = &entry._move {
+            if *m == *tt_move {
+                return state.cfg.mo_tt_entry_value.value * MO_FACTOR;
+            }
         }
 
         if m.is_capture() {

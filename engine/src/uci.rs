@@ -1,6 +1,3 @@
-//! UCI (Universal Chess Interface) protocol implementation module.
-//! Handles communication between the chess engine and UCI-compatible chess GUIs.
-
 use crate::logger::Logger;
 use crate::nnue::NNUEState;
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
@@ -15,13 +12,11 @@ use shakmaty::uci::UciMove;
 use shakmaty::zobrist::ZobristHash;
 use shakmaty::{CastlingMode, Chess, Position};
 
-/// Main UCI protocol handler implementing the Universal Chess Interface.
 pub struct UciController {
     search: Search,
 }
 
 impl Default for UciController {
-    /// Creates a new UCI instance with default settings.
     fn default() -> UciController {
         UciController {
             search: Search::new(),
@@ -30,10 +25,6 @@ impl Default for UciController {
 }
 
 impl UciController {
-    /// Parses a UCI command string and processes it.
-    ///
-    /// # Arguments
-    /// * `command` - string containing the UCI command to process
     pub fn parse_command(&mut self, command: &str) {
         let tokens_vec: Vec<&str> = command.split_whitespace().collect();
         let mut tokens: Queue<&str> = queue![];
@@ -45,10 +36,6 @@ impl UciController {
         self.parse_tokens(&mut tokens);
     }
 
-    /// Processes a queue of command tokens.
-    ///
-    /// # Arguments
-    /// * `tokens` - Queue of command tokens to process
     fn parse_tokens(&mut self, tokens: &mut Queue<&str>) {
         let first_token = tokens.remove().unwrap();
 
@@ -149,10 +136,6 @@ impl UciController {
         );
     }
 
-    /// Handles the 'go' command with various self.search.state.parameters.
-    ///
-    /// # Arguments
-    /// * `tokens` - Queue containing self.search.state.parameters
     fn handle_go(&mut self, tokens: &mut Queue<&str>) {
         let token = tokens.remove();
 
@@ -191,10 +174,6 @@ impl UciController {
         self.handle_go(tokens);
     }
 
-    /// Sets up timing parameters for black.
-    ///
-    /// # Arguments
-    /// * `tokens` - Queue containing time value in milliseconds
     fn handle_btime(&mut self, tokens: &mut Queue<&str>) {
         let token = tokens.remove().unwrap();
         let time = token.parse::<u128>().unwrap();
@@ -206,10 +185,6 @@ impl UciController {
         self.handle_go(tokens);
     }
 
-    /// Sets up timing parameters for white.
-    ///
-    /// # Arguments
-    /// * `tokens` - Queue containing time value in milliseconds
     fn handle_wtime(&mut self, tokens: &mut Queue<&str>) {
         let token = tokens.remove().unwrap();
         let time = token.parse::<u128>().unwrap();
@@ -221,10 +196,6 @@ impl UciController {
         self.handle_go(tokens);
     }
 
-    /// Sets up self.search.state.with fixed depth.
-    ///
-    /// # Arguments
-    /// * `tokens` - Queue containing depth value in plies
     fn handle_go_depth(&mut self, tokens: &mut Queue<&str>) {
         let token = tokens.remove().unwrap();
         let depth = token.parse::<u8>().unwrap();
@@ -235,10 +206,6 @@ impl UciController {
         self.handle_go(tokens);
     }
 
-    /// Sets up self.search.state.with fixed time per move.
-    ///
-    /// # Arguments
-    /// * `tokens` - Queue containing time value in milliseconds
     fn handle_go_movetime(&mut self, tokens: &mut Queue<&str>) {
         let token = tokens.remove().unwrap();
         let time = token.parse::<u128>().unwrap();
@@ -250,10 +217,6 @@ impl UciController {
         self.handle_go(tokens);
     }
 
-    /// Processes position setup commands.
-    ///
-    /// # Arguments
-    /// * `tokens` - Queue containing position type and moves
     fn handle_position(&mut self, tokens: &mut Queue<&str>) {
         let token = tokens.remove().unwrap();
 
@@ -266,10 +229,6 @@ impl UciController {
         }
     }
 
-    /// Sets up the initial chess position and applies moves.
-    ///
-    /// # Arguments
-    /// * `tokens` - Queue containing moves to apply
     fn handle_position_startpos(&mut self, tokens: &mut Queue<&str>) {
         self.search.state.game = Chess::default();
         self.search.state.hstack.clear();
@@ -298,10 +257,6 @@ impl UciController {
         self.search.state.nnue = NNUEState::from_board(self.search.state.game.board());
     }
 
-    /// Sets up a position from FEN string and applies moves.
-    ///
-    /// # Arguments
-    /// * `tokens` - Queue containing FEN string and moves
     fn handle_position_fen(&mut self, tokens: &mut Queue<&str>) {
         let mut fen_vec: Vec<&str> = vec![tokens.remove().ok().unwrap()];
         let mut token: &str = "";
@@ -346,10 +301,6 @@ impl UciController {
         self.search.state.nnue = NNUEState::from_board(self.search.state.game.board());
     }
 
-    /// Processes option setting commands.
-    ///
-    /// # Arguments
-    /// * `tokens` - Queue containing option name and value
     fn handle_setoption(&mut self, tokens: &mut Queue<&str>) {
         if tokens.size() < 4 {
             return;
@@ -441,10 +392,6 @@ impl UciController {
         }
     }
 
-    /// Sets up infinite self.search.state.mode.
-    ///
-    /// # Arguments
-    /// * `tokens` - Queue of remaining tokens to process
     fn handle_go_infinite(&mut self, tokens: &mut Queue<&str>) {
         self.search.state.params.depth = u8::MAX;
         self.search.state.tc.time_mode = TimeMode::Infinite;
@@ -452,22 +399,18 @@ impl UciController {
         self.handle_go(tokens);
     }
 
-    /// Resets the game to initial position.
     fn handle_ucinewgame(&mut self) {
         self.search.state.game = Chess::default();
     }
 
-    /// Responds to isready command.
     fn handle_isready(&self) {
         Logger::log("readyok");
     }
 
-    /// Handles quit command by exiting the program.
     fn handle_quit(&self) {
         std::process::exit(0);
     }
 
-    /// Sends engine identification and available options.
     fn handle_uci(&self) {
         Logger::log(r#"id name Pluto"#);
         Logger::log(r#"id author CastledChess"#);
@@ -501,7 +444,6 @@ impl UciController {
         Logger::log(format!("{}", self.search.state.cfg.mo_killer_value).as_str());
         Logger::log(format!("{}", self.search.state.cfg.tc_time_divisor).as_str());
         Logger::log(format!("{}", self.search.state.cfg.tc_elapsed_factor).as_str());
-        // Values to tune
 
         Logger::log(r#"uciok"#);
     }
